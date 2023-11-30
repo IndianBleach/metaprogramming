@@ -46,74 +46,20 @@ void printLongestString() {
     printLongest();
 }
 
- void strclean(char* s, char* in) {
-    int c = 0;
-    int i = 0;
-    
-    bool sf = false;
-    bool tf = false; 
 
-    while(s[i] != '\0') {
-        if (s[i] == ' ' && sf == false) {
-            sf= true;
-            c++;
-        }
-        else if (s[i] == '\t' && tf == false) {
-            tf = true;
-            c++;
-        }
-        else {
-            sf=false;
-            tf=false;
-            c++;
-        }
-        i++;
-    }
-
-    sf = false;
-    tf = false;
-
-    i = 0;
-    int t = 0;
-    char arr[c];
-
-    c = 0;
-
-    while(s[i] != '\0') {
-        if (s[i] == ' ' && sf == false) {
-            sf= true;
-            arr[c++] = s[i];
-        }
-        else if (s[i] == '\t' && tf == false) {
-            tf = true;
-            arr[c++] = s[i];
-        }
-        else {
-            sf=false;
-            tf=false;
-            arr[c++] = s[i];
-        }
-
-        i++;
-    }
-
-    arr[c] = '\0';
-
-    in = &arr[0];
+void foo(char* out) {
+    char w[] = "same short";
+    out = "same";
 }
 
-
 int main() {
-    char* t = "apple\0";
-    char* res;
-    strclean(t, res);
+    char t[6] = "apple\0";
+    char* res = &t[0];
+    //strclean(&t[0], res);
 
-    printf("%c \n", res[0]);
+    char w[] = "apple world";
 
-    int i  =0;
-    while((res[i] != '\0')) {
-        printf("%c", res[i]);
-        i++;
-    }
-
+    printf("%s \n", res);
+    foo(res);
+    printf("%s \n", res);
 }
