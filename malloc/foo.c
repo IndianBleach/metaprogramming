@@ -50,16 +50,43 @@ void _malloc(size_t size) {
     HEAP_INIT;
 }
 
+// todo: попробовать реализовать фри через хеш таблицу
+
 // двоичный поиск на основе адреса(размера) среди alloced_chunks
 int _indexOfAddr(void* target, int startIndex, int endIndex) {
-    //
-    int mid = startIndex - endIndex;
-    if (heap.alloced_chunks[mid].start_at == target) {
-        return mid;
+    
+    if (startIndex > endIndex) return -1;
+
+    while(startIndex <= endIndex) {
+        int mid =  (endIndex - startIndex) / 2;
+        //printf("%i-%i=%i\n", endIndex, startIndex, mid);
+        
+
+
+        printf("start=%i end=%i mid=%i\n", startIndex, endIndex, mid);
+
+        if (heap.alloced_chunks[mid].start_at == target) {
+            return mid;
+        }
+        else if (mid == 1) {
+            if (heap.alloced_chunks[0].start_at == target) return 0;
+            else return -1; 
+        }
+        else if (heap.alloced_chunks[mid].start_at < target) {
+            startIndex = mid++;
+            printf("fuick\n");
+            //return _indexOfAddr(target, mid++, endIndex--);
+        }
+        else if (heap.alloced_chunks[mid].start_at < target) {
+            endIndex = mid--;
+            printf("fuick\n");
+            //return _indexOfAddr(target, startIndex, mid--);
+        }
+
+        
     }
 
-    return mid;
-    //if (heap.allocated_cap)
+    return -1;  
 }
 
 
@@ -68,8 +95,16 @@ int _indexOfAddr(void* target, int startIndex, int endIndex) {
 void _free(void* addr) {
     HEAP_INIT;
 
+    int findIndex = _indexOfAddr(addr, 0, heap._alloced_index);
 
 
+
+    for(int i = 0; i < heap._alloced_index; i++) {
+        if (heap.alloced_chunks[i].start_at == addr) {
+            heap.alloced_chunks[i].is_freed = true;
+            heap.allocated_cap -= heap.alloced_chunks[i].size;
+        }
+    }
 }
 
 // dump_chunks
@@ -112,20 +147,27 @@ void dump_heap() {
         heap.curr);
 }
 
+void dump_chunks() {
+    printf("dump: ALLOCED_CHUNKS\ncount: %i\n", heap._alloced_index);
+    for(int i = 0; i < heap._alloced_index; i++) {
+        printf("start: %p\nsize: %i\nfree: %i\n------------\n", heap.alloced_chunks[i].start_at, heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed);
+    }
+}
+
 
 int main() { 
 
     _malloc(4);
    
-    push_back(4);
-
-    dump_heap();
+    void* p2 = push_back(4);
 
     void* p1 = push_back(18);
 
-    dump_heap();
+    _free(p1);
 
-    printf("index: %i \n", _getChunkIndex(p1));
+    dump_chunks();
+
+    printf("index: %i \n", _indexOfAddr(p1, 0, heap._alloced_index));
 
     return 0;
 }
