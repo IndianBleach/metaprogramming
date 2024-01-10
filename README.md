@@ -1,1 +1,1 @@
-malloc, gc, lexer, parser
+malloc, gc, lexer, parser, object memory frames (заимствование) 
