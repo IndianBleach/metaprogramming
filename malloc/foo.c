@@ -202,10 +202,14 @@ void heap_shift_left(int startIndex, int toStep) {
 
     if (startIndex < 0) return;
 
-    if (startIndex == heap.alloced_index - 1) startIndex = 0;
+    if (startIndex == heap.alloced_index-1) {
+        heap.alloced_index--;
+        heap.alloced_chunks[startIndex].size = 0;
+        heap.alloced_chunks[startIndex].start_at = NULL;
+        heap.alloced_chunks[startIndex].is_freed = false;
+        return;
+    }
 
-    printf("================shift left==============\n");
-    dump_heap_array();
     for(int i = startIndex; i < heap.alloced_index-toStep; i++) {
         heap.alloced_chunks[i] = heap.alloced_chunks[i+toStep];
     }
@@ -216,9 +220,6 @@ void heap_shift_left(int startIndex, int toStep) {
         heap.alloced_chunks[i].is_freed = false;
         heap.alloced_index--;
     }
-
-    dump_heap_array();
-    printf("================end==============\n");
 }
 
 // инсерт в чанк, разделяет его на две новые части
@@ -271,14 +272,13 @@ int sort_chunk_compare(const void* a, const void* b) {
 }
 
 void* _malloc(size_t size) {
-    
     if (size <= 0) return NULL; 
 
     HEAP_INIT;
 
-    int freed_index = _indexOfMinFreed(size, 0, heap.alloced_index);
+    //printf("(%i) MALLOC-before: %i \n", size, heap.alloced_index);
 
-    printf("(%i) f-index: %i \n", size, freed_index);
+    int freed_index = _indexOfMinFreed(size, 0, heap.alloced_index);
 
     if (freed_index != -1) {
         insert_at(freed_index, size);
@@ -298,8 +298,42 @@ void* _malloc(size_t size) {
 // - update_cur
 // - shift_left
 
-// heap_sort
+void heap_merge_chunks(int targetStart, int end) {
+    
+    if (targetStart >= end) return;
 
+    //printf("merge: %i -> %i \n", targetStart, end);
+
+    int i = targetStart+1;
+    while(i <= end) {
+        heap.alloced_chunks[targetStart].size += heap.alloced_chunks[i].size;
+        i++;
+    }
+
+    heap_shift_left(targetStart+1, end - targetStart);
+}
+
+void heap_collect_free() {
+    
+    dump_heap_array();
+
+    for(int i = 0; i < heap.alloced_index; i++) {
+    
+        if (heap.alloced_chunks[i].is_freed) {
+
+            // find next freed
+            int j = i;
+            while(heap.alloced_chunks[j++].is_freed) 
+            {}
+
+            if ((j - i) > 1) {
+                heap_merge_chunks(i, j-2);
+            }
+        }
+    }
+
+    qsort(heap.alloced_chunks, heap.alloced_index, sizeof(HeapChunk), sort_chunk_compare);
+}
 
 
 
@@ -342,21 +376,30 @@ void _free(void* addr) {
 
 int main() { 
 
-    //_malloc(6);
-   
-    //dump_chunks();
+    int* p1 = (int*)_malloc(sizeof(int));
 
-    
+    int* p2 = (int*)_malloc(sizeof(int));
 
-    int* p1 = (int*)_malloc(1);
+    int* p3 = (int*)_malloc(sizeof(int));
 
-    int* p2 = (int*)_malloc(2);
+    double* p4 = (double*)_malloc(sizeof(double));
 
-    int* p3 = (int*)_malloc(3);
+    int* p5 = (int*)_malloc(sizeof(int));
 
-    double* p4 = (double*)malloc(sizeof(double));
+    _free(p2);
+    _free(p3);
 
-    heap_shift_left(1, 1);
+    //printf("qqdq\n");
+
+    heap_collect_free();
+
+    dump_heap_array();
+
+    double* p6 = (double*)_malloc(sizeof(double));
+
+    dump_heap_array();
+
+    //heap_shift_left(1, 1);
 
     // 1 2 1 2(0)
 
