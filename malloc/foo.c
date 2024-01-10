@@ -36,9 +36,6 @@ Mheap heap;
 
 
 void MHeapInit() {
-
-    printf("init heap \n");
-
     void* start = (void*)HeapCreate(HEAP_NO_SERIALIZE, HEAP_INIT_CAP, HEAP_MAX_CAP);
 
     heap.max_cap = HEAP_MAX_CAP;
@@ -55,7 +52,6 @@ void _heapAlloc(size_t size) {
     heap.alloced_index += 1;
     heap.allocated_cap += size;
     heap.curr += (int)size;
-    printf("heap.alloc -> index=%i, cap=%i \n", heap.alloced_index, heap.allocated_cap);
 }
 
 // allocate and push new chunk to end of heap
@@ -85,12 +81,8 @@ int _indexOfAddr(void* target, int startIndex, int endIndex) {
         
         mid =  (endIndex - startIndex) / 2 + startIndex;
         
-        printf("%i-%i,%i \n", startIndex, endIndex, mid);
-
         if (endIndex - startIndex == 1) {
             mid = startIndex;
-            if (mid == heap.alloced_index - 1)
-            printf("NULLED\n");
         }
 
         if (heap.alloced_chunks[mid].start_at == target) {
@@ -132,14 +124,12 @@ int _indexOfMinFreed(size_t target, int startIndex, int endIndex) {
         if (mid == heap.alloced_index - 1) {
             return -1;
         }
-
-        printf("mid=%i \n", mid);
     }
 
     if (mid <= 1) mid = 0;
 
     while(mid < heap.alloced_index) {
-        printf("arr[%i] free=%i size=%i \n", mid, heap.alloced_chunks[mid].is_freed, heap.alloced_chunks[mid].size);
+        //printf("arr[%i] free=%i size=%i \n", mid, heap.alloced_chunks[mid].is_freed, heap.alloced_chunks[mid].size);
         if (heap.alloced_chunks[mid].is_freed &&
             heap.alloced_chunks[mid].size >= target) {
             return mid;
@@ -149,6 +139,37 @@ int _indexOfMinFreed(size_t target, int startIndex, int endIndex) {
 
     return -1;
 }
+
+void dump_heap() {
+    printf("dump: MHEAP\nalloced_cap+index: %i %i\nstart_at: %p\ncurr: %p\n----------------------\n", 
+        heap.allocated_cap,
+        heap.alloced_index,
+        heap.start_at,
+        heap.curr);
+}
+
+void dump_chunks() {
+    printf("dump: ALLOCED_CHUNKS\ncount: %i\n", heap.alloced_index);
+    for(int i = 0; i < heap.alloced_index; i++) {
+        printf("start: %p\nsize: %i\nfree: %i\n------------\n", heap.alloced_chunks[i].start_at, heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed);
+    }
+}
+
+void dump_heap_info() {
+    printf("dump: HEAP\n alloced= %i, last->free=%i\n===================\n", heap.alloced_index, heap.alloced_chunks[heap.alloced_index-1].is_freed);
+}
+
+void dump_heap_array() {
+    printf("heap [");
+    for(int i = 0; i < heap.alloced_index; i++) {
+        if (i == heap.alloced_index -1) {
+            printf("%i(%i) ]\n", heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed);
+        }
+        else printf("%i(%i), ", heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed);
+    }
+}
+
+
 
 void* _malloc(size_t size) {
     
@@ -172,19 +193,12 @@ void* _malloc(size_t size) {
 // todo: попробовать реализовать фри через хеш таблицу
 
 
-
-
-
 void _free(void* addr) {
     HEAP_INIT;
 
     // todo: asserts, if
 
-    printf("COUNT=%i \n", heap.alloced_index);
-
     int findIndex = _indexOfAddr(addr, 0, heap.alloced_index);
-
-    printf("findIndex = %i \n", findIndex);
 
     heap.alloced_chunks[findIndex].is_freed = true;
     heap.allocated_cap -= heap.alloced_chunks[findIndex].size;
@@ -193,6 +207,66 @@ void _free(void* addr) {
     //*(uintptr_t*)addr = 0;
 }
 
+
+// склеивает все непрерывные чанки в один
+void heap_collect() {
+
+}
+
+void heap_reorder() {
+    
+}
+
+void heap_shift_right(int startIndex) {
+    // todo: asserts
+    if (startIndex < ALLOCED_CHUNKS_LEN) {
+        
+        for(int i = heap.alloced_index-1; i >= startIndex; i--) {
+            heap.alloced_chunks[i+1] = heap.alloced_chunks[i];
+        }
+
+        heap.alloced_chunks[startIndex].size = 0; 
+
+        heap.alloced_index += 1;
+    }
+}
+
+// инсерт в чанк, разделяет его на две новые части
+void* insert_at(int index, size_t target_size) {
+    // update cur
+    // shift
+
+    if (index >= heap.alloced_index) {
+        return NULL;
+    }
+
+    size_t free_size = heap.alloced_chunks[index].size - target_size;
+    int new_index = index + 1;
+
+    printf("st=%p\n", heap.alloced_chunks[index].start_at);
+    void* new_addr = heap.alloced_chunks[index].start_at + (int)target_size;
+
+    printf(" size=%i\nleft: %p\nright:%p\n", target_size, heap.alloced_chunks[index].start_at, new_addr);
+
+    // update cur chunk 
+    heap.alloced_chunks[index].size = target_size;
+    heap.alloced_chunks[index].is_freed = false;
+
+    dump_heap_array();
+
+    if (free_size > 0) {
+        heap_shift_right(new_index);
+        HeapChunk right_chunk = {.is_freed = true, .size = free_size, .start_at = new_addr};
+        heap.alloced_chunks[new_index] = right_chunk;
+    }
+
+    dump_heap_array();
+
+    // create new chunk
+
+    //heap.alloced_index++;
+    // todo: инкремент alloced_index to func
+}
 
 
 
@@ -204,25 +278,6 @@ void _free(void* addr) {
 */ 
 
 
-void dump_heap() {
-    printf("dump: MHEAP\nalloced_cap+index: %i %i\nstart_at: %p\ncurr: %p\n----------------------\n", 
-        heap.allocated_cap,
-        heap.alloced_index,
-        heap.start_at,
-        heap.curr);
-}
-
-void dump_chunks() {
-    printf("dump: ALLOCED_CHUNKS\ncount: %i\n", heap.alloced_index);
-    for(int i = 0; i < heap.alloced_index; i++) {
-        printf("start: %p\nsize: %i\nfree: %i\n------------\n", heap.alloced_chunks[i].start_at, heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed);
-    }
-}
-
-void dump_heap_info() {
-    printf("dump: HEAP\n alloced= %i, last->free=%i\n===================\n", heap.alloced_index, heap.alloced_chunks[heap.alloced_index-1].is_freed);
-}
-
 // heap_collect
 // reorder
 
@@ -233,23 +288,30 @@ int main() {
    
     //dump_chunks();
 
-    int* p1 = (int*)_malloc(sizeof(int));
+    int* p1 = (int*)_malloc(1);
 
-    int* p2 = (int*)_malloc(sizeof(int));
+    int* p2 = (int*)_malloc(2);
 
-    int* p3 = (int*)_malloc(sizeof(int));
+    int* p3 = (int*)_malloc(3);
 
-    dump_heap_info();
+    _free(p3);
+
+    dump_heap_array();
+
+    // [1(0), 2(1), 3(0) ]
+    // insert_at(1, 1);
+    // [1(0), 1(0), 1(1), 3(0) ]
+
+    insert_at(2, 1);
+
+    dump_heap_array();
+
+    dump_chunks();
 
     //printf("res=%i \n", _indexOfAddr((void*)p1, 0, heap.alloced_index));
 
     //_indexOfAddr
 
-    _free(p1);
-
-    dump_chunks();
-
-    printf("res=%i \n", _indexOfMinFreed(1, 0, heap.alloced_index));
 
     return 0;
 }
