@@ -12,17 +12,21 @@
 #define HEAP_SIZE HEAP_SIZE_BIT/sizeof(char)
 
 HANDLE hheap;
-heap = HeapCreate(HEAP_NO_SERIALIZE, 1024, 0);
+heap = 
 char heap[] = (int*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, HEAP_SIZE);
 
 typedef struct {
     bool is_initialized; // init flag
     size_t cur_ptr; // current
-    
-    HANDLE h_heap;
-    char heap[];
+    void* h_heap; // total
 
 } Hheap;
+
+Hheap main_heap = {
+    .is_initialized = false,
+    .h_heap = NULL,
+    .cur_ptr = 0,
+};
 
 Hheap* hheap_init() {
     
@@ -30,7 +34,7 @@ Hheap* hheap_init() {
 
 int* foo()
 {
-
+    
 
 
     int* heapBlock = 
