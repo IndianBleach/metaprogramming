@@ -1,1 +1,6 @@
-malloc, gc, lexer, parser, object memory frames (заимствование) 
+### todo
+- [x] `malloc`
+- `GC`
+- `lexer`
+- `parser`
+- `object memory frames (auto free with brackets)`
