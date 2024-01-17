@@ -7,6 +7,7 @@
 #define LIST_DEFAULT_LEN 200
 #define LIST_EMPTY_VAL 9000000000000000
 
+// todo: flexible capacity
 typedef struct  {
     uintptr_t array[LIST_DEFAULT_LEN];
     int index;
@@ -29,7 +30,7 @@ void SortedList__uintpt_init(SortedList__uintpt* list) {
     list->count = 0;
 }
 
-void SortedList__uintpt_add(SortedList__uintpt* ls, int elem) {
+void SortedList__uintpt_add(SortedList__uintpt* ls, uintptr_t elem) {
     
     if (ls->last_del_index != -1) {
         ls->array[ls->last_del_index] = elem;
@@ -67,12 +68,29 @@ void SortedList__uintpt_removeAt(SortedList__uintpt* ls, int index) {
 
 SortedList__uintpt ls;
 
+//------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
 int main() {
 
     SortedList__uintpt_init(&ls);
 
+    uintptr_t t1 = (uintptr_t)&ls.array[0];
+
+    printf("pt=%p, uint=%i pt2=%p \n", &ls.array[0], (uintptr_t)&ls.array[0], (void*)t1);
+
     for(int i = 0; i < LIST_DEFAULT_LEN-1; i++) {
-        SortedList__uintpt_add(&ls, i);
+        //SortedList__uintpt_add(&ls, (uintptr_t)&(ls.array[i]));
     }
     
     SortedList__uintpt_removeAt(&ls, LIST_DEFAULT_LEN/2);
