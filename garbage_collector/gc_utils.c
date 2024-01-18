@@ -84,6 +84,7 @@ typedef struct  {
     int size;
 } gc_RefTreeNode;
 
+const gc_RefTreeNode _empty_refNode = {.size = 9999999, .start = NULL};
 
 typedef struct  {
     gc_RefTreeNode array[LIST_DEFAULT_LEN];
@@ -91,10 +92,6 @@ typedef struct  {
     int last_del_index;
     int count;
 } SortedList__treeNode;
-
-
-
-SortedList__treeNode temp_list;
 
 int SortedList__treeNode_compare(const void* a, const void* b) {
     gc_RefTreeNode ca = * ((gc_RefTreeNode*)a);
@@ -136,32 +133,21 @@ void SortedList__treeNode_dump(SortedList__treeNode* ls) {
     printf("]\n");
 }
 
-// todo: sortedList.array сделать поинтеры вместо значений 
-
-gc_RefTreeNode default_node = {.size = 999, .start = NULL};
-
 void SortedList__treeNode_removeAt(SortedList__treeNode* ls, int index) {
     
     if (ls->count == 0) {
         return;
     }
     
-    ls->array[index] = default_node;
+    ls->array[index] = _empty_refNode;
     ls->last_del_index = index;
     ls->count--;
 
-    SortedList__treeNode_dump(&temp_list);
-
-
-    qsort(&ls->array[0], ls->index, sizeof(uintptr_t), SortedList__treeNode_compare);
-    
-    SortedList__treeNode_dump(&temp_list);
+    qsort(&ls->array[0], ls->index, sizeof(gc_RefTreeNode), SortedList__treeNode_compare);
     ls->index--;
 }
 
-
-
-
+SortedList__treeNode temp_list;
 
 gc_RefTreeNode tr;
 
