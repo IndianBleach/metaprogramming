@@ -4,14 +4,20 @@
 #include "heapapi.h"
 #include <stdint.h>
 
-// todo: reserve some heap to gc
-
 #define LIST_DEFAULT_LEN 200
 
 #define LIST_EMPTY_TREENODE 
 #define LIST_EMPTY_VAL 9000000000000000
 
-// todo: flexible capacity
+// todo: sortedList flexible capacity
+// add gc.reserveRef(ref)
+// add gc main class
+// add malloc realization with heap
+// add gcHeapRefTree.addRoot?
+
+
+/*________ SortedList__uintpt */
+
 typedef struct  {
     uintptr_t array[LIST_DEFAULT_LEN];
     int index;
@@ -28,7 +34,8 @@ int SortedList__uintpt_compare(const void* a, const void* b) {
     else return 1; 
 }
 
-void SortedList__uintpt_init(SortedList__uintpt* list) {
+SortedList__uintpt* SortedList__uintpt_init() {
+    SortedList__uintpt* list = (SortedList__uintpt*)malloc(sizeof(SortedList__uintpt));
     list->index = 0;
     list->last_del_index = -1;
     list->count = 0;
@@ -70,48 +77,46 @@ void SortedList__uintpt_removeAt(SortedList__uintpt* ls, int index) {
     ls->index--;
 }
 
-//SortedList__uintpt ls;
-
-// add sortedList<gc_TreeNode>
-// add gc.reserveRef(ref)
-// add gc main class
-
-//------------------------------------
+/*________ gcRefTreeNode */
 
 typedef struct  {
-    void* childrens;
+    void* childrens; // todo: typeof? SortedList__treeNode
     void* start;
     int size;
-} gc_RefTreeNode;
+} gcRefTreeNode;
 
-const gc_RefTreeNode _empty_refNode = {.size = 9999999, .start = NULL};
+const gcRefTreeNode _empty_refNode = {.size = 9999999, .start = NULL};
+
+/*________ SortedList__treeNode */
 
 typedef struct  {
-    gc_RefTreeNode array[LIST_DEFAULT_LEN];
+    gcRefTreeNode array[LIST_DEFAULT_LEN];
     int index;
     int last_del_index;
     int count;
 } SortedList__treeNode;
 
 int SortedList__treeNode_compare(const void* a, const void* b) {
-    gc_RefTreeNode ca = * ((gc_RefTreeNode*)a);
-    gc_RefTreeNode cb = * ((gc_RefTreeNode*)b);
+    gcRefTreeNode ca = * ((gcRefTreeNode*)a);
+    gcRefTreeNode cb = * ((gcRefTreeNode*)b);
 
-    if (ca.size == -1) return -1;
-    else if (cb.size == -1) return 1;
+    if (ca.start == -1) return -1;
+    else if (cb.start == -1) return 1;
 
-    if (ca.size == cb.size) return 0;
-    else if (cb.size > ca.size) return -1;
+    if (ca.start == cb.start) return 0;
+    else if (cb.start > ca.start) return -1;
     else return 1; 
 }
 
-void SortedList__treeNode_init(SortedList__treeNode* list) {
+SortedList__treeNode* SortedList__treeNode_init() {
+    // todo: switch to self malloc
+    SortedList__treeNode* list = (SortedList__treeNode*)malloc(sizeof(SortedList__treeNode));
     list->index = 0;
     list->last_del_index = -1;
     list->count = 0;
 }
 
-void SortedList__treeNode_add(SortedList__treeNode* ls, gc_RefTreeNode elem) {
+void SortedList__treeNode_add(SortedList__treeNode* ls, gcRefTreeNode elem) {
     
     if (ls->last_del_index != -1) {
         ls->array[ls->last_del_index] = elem;
@@ -122,7 +127,7 @@ void SortedList__treeNode_add(SortedList__treeNode* ls, gc_RefTreeNode elem) {
     }
     
     ls->count++;
-    qsort(&ls->array[0], ls->index, sizeof(gc_RefTreeNode), SortedList__treeNode_compare);
+    qsort(&ls->array[0], ls->index, sizeof(gcRefTreeNode), SortedList__treeNode_compare);
 }
 
 void SortedList__treeNode_dump(SortedList__treeNode* ls) {
@@ -143,41 +148,154 @@ void SortedList__treeNode_removeAt(SortedList__treeNode* ls, int index) {
     ls->last_del_index = index;
     ls->count--;
 
-    qsort(&ls->array[0], ls->index, sizeof(gc_RefTreeNode), SortedList__treeNode_compare);
+    qsort(&ls->array[0], ls->index, sizeof(gcRefTreeNode), SortedList__treeNode_compare);
     ls->index--;
 }
 
-SortedList__treeNode temp_list;
 
-gc_RefTreeNode tr;
-
-void init(gc_RefTreeNode* tree) {
-    tree->childrens = &temp_list;
+gcRefTreeNode* gcRefTreeNode_init(void* start, int size) {
+    gcRefTreeNode* node = (gcRefTreeNode*)malloc(sizeof(gcRefTreeNode));
+    node->childrens = (void*) SortedList__treeNode_init();
+    node->size = size;
+    node->start = start;
 }
+
+int gcRefTreeNode_addChild(gcRefTreeNode* root, void* child_start, int child_size) {
+    SortedList__treeNode* list = (SortedList__treeNode*)(root->childrens);
+    
+    gcRefTreeNode node = {
+        .childrens = (void*)SortedList__treeNode_init(),
+        .size = child_size,
+        .start = child_start
+    };
+
+    SortedList__treeNode_add(list, node);
+
+    return list->index - 1;
+}
+
+gcRefTreeNode* gcRefTreeNode_getChild(gcRefTreeNode* root, int index) {
+    SortedList__treeNode* list = (SortedList__treeNode*)(root->childrens);
+    
+    if (list->index <= index) {
+        return NULL;
+    }
+
+    return &(list->array[index]);
+}
+
+int treeNode_minIndex(SortedList__treeNode* list, void* target) {
+    int start = 0;
+    int end = list->index;
+    int prev = -1;
+    int mid = (start + end) / 2;
+    while(start < end) {
+
+        mid = (start + end)/2;
+
+        if (list->array[mid].start == target) {
+            printf("equal=%i\n", mid);
+            return mid;
+        }
+        else if (list->array[mid].start < target) {
+            start = mid;
+        }
+        else if (list->array[mid].start > target) {
+            end = mid;
+        }
+
+        if (prev == mid) {
+            printf("same=%i\n", mid);
+            return mid;
+        }
+        else {
+            prev = mid;
+        }
+
+        printf("mid=%i\n", mid);
+    }
+}
+
+gcRefTreeNode* gcRefTreeNode_findNode(gcRefTreeNode* root, void* target) {
+    // todo: maybe return heapChunk
+    SortedList__treeNode* list = (SortedList__treeNode*)root->childrens;
+
+    int bestIndex = treeNode_minIndex(list, target);
+
+    if (list->array[bestIndex].start == target) {
+        return &(list->array[bestIndex]);
+    }
+    else {
+        while (list->array[bestIndex].start < target) {
+            printf("index=%i\n", bestIndex);
+            gcRefTreeNode* deep = gcRefTreeNode_findNode(&(list->array[bestIndex]), target);
+            
+            if (deep != NULL) {
+                return deep;
+            }
+            
+            bestIndex++;
+        }
+
+        return NULL;
+    }
+}
+
+/*________ gcHeapRefTree */
+
+typedef struct {
+    SortedList__treeNode* rootList;
+} gcHeapRefTree;
+
+gcHeapRefTree* gcHeapRefTree_init() {
+    gcHeapRefTree* tree = (gcHeapRefTree*)malloc(sizeof(gcHeapRefTree));
+    tree->rootList = (void*) SortedList__treeNode_init(); 
+}
+
 
 int main() {
 
-    SortedList__treeNode_init(&temp_list);
 
-    init(&tr);
+    gcRefTreeNode* node = gcRefTreeNode_init(NULL, 1);
 
-    gc_RefTreeNode s1 = {.size = 1, .start = NULL};
-    gc_RefTreeNode s2 = {.size = 2, .start = NULL};
-    gc_RefTreeNode s3  = {.size = 3, .start = NULL};
+    // 1-100
+    for(int i = 1; i < 100 ; i++) {
+        //gcRefTreeNode nd = *(gcRefTreeNode_init((void*)(i), i));
+        gcRefTreeNode_addChild(node, (void*)(i), i);
+    }
 
-    SortedList__treeNode* list = (SortedList__treeNode*)tr.childrens;
-    printf("%i \n", list->array[0]);
+    printf("13\n");
 
-    SortedList__treeNode_add(&temp_list, s1);
-    SortedList__treeNode_add(&temp_list, s2);
-    SortedList__treeNode_add(&temp_list, s3);
+    // 10
+    gcRefTreeNode* node2 = gcRefTreeNode_getChild(node, 98);
 
-    SortedList__treeNode_removeAt(&temp_list, 1);
+    // d2 100-126
+    for(int i = 100; i < 126 ; i++) {
+        gcRefTreeNode_addChild(node2, (void*)(i), i);
+    }
 
-    SortedList__treeNode_dump(&temp_list);
+    printf("2\n");
 
-    printf("%i \n", list->count);
+    // 10
+    gcRefTreeNode* node3 = gcRefTreeNode_getChild(node2, 25);
 
+    printf("list3=%i\n", node3->size);
+
+    // d2 100-126
+    for(int i = 126; i < 150 ; i++) {
+        gcRefTreeNode_addChild(node3, (void*)(i), i);
+    }
+
+
+    void* tar = (void*)144;
+    gcRefTreeNode* find = gcRefTreeNode_findNode(node, tar);
+
+    printf("targ=%p finded=%p\n", tar, find->start);
+   
+    //printf("val=%p\n", (uintptr_t)(list->array[best].start));
+
+    //SortedList__treeNode_dump(list);
+    //SortedList__treeNode_init(&temp_list);
 
     return 0;
 
