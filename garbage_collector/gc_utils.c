@@ -5,11 +5,17 @@
 #include <stdint.h>
 
 #include "../malloc/_malloc.h"
+#include <pthread.h>
 
 #define LIST_DEFAULT_LEN 200
 
 #define LIST_EMPTY_TREENODE 
 #define LIST_EMPTY_VAL 9000000000000000
+
+
+#define GC_SET_FRAME gc_updateFuncFrame();
+
+
 
 // todo: sortedList flexible capacity
 // add gc.reserveRef(ref)
@@ -154,6 +160,14 @@ void SortedList__treeNode_removeAt(SortedList__treeNode* ls, int index) {
     ls->index--;
 }
 
+void SortedList__treeNode_clean(SortedList__treeNode* list) {
+    list->count = 0;
+    list->index = 0;
+    list->last_del_index = -1;
+}
+
+
+
 
 gcRefTreeNode* gcRefTreeNode_init(void* start, int size) {
     gcRefTreeNode* node = (gcRefTreeNode*)malloc(sizeof(gcRefTreeNode));
@@ -242,6 +256,74 @@ gcRefTreeNode* gcRefTreeNode_findNode(gcRefTreeNode* root, void* target) {
         return NULL;
     }
 }
+ 
+
+
+void gcRefTreeNode_makeChildrens( gcRefTreeNode* node, SortedList__treeNode* child_obj_list) {
+    SortedList__treeNode* list = (SortedList__treeNode*)node->childrens;
+    SortedList__treeNode_clean(list);
+
+    for(int i = 0; i < child_obj_list->index; i++) {
+        gcRefTreeNode_addChild(
+            node,
+            child_obj_list->array[i].start,
+            child_obj_list->array[i].size);
+    }
+}
+
+
+
+bool stack_anyRef(void* heapAddr) {
+    // sliding window from rsp to ebp
+    // check (*[window]) == heapAddr 
+}
+
+
+void gc_mark() {
+    // mark current rootList
+}
+
+void gc_toNextGen(gcRefTreeNode* root) {
+    
+    int bestMin = treeNode_minIndex(main_gc.gen1, root->start);
+    // todo: size&ptr good node identifier?
+    // already exists in gen1
+    // todo: add gen0
+    if (main_gc.gen1->array[bestMin].size == root->size &&
+        main_gc.gen1->array[bestMin].start == root->start) {
+
+            int bestMin2 = treeNode_minIndex(main_gc.gen2, root->start);
+            if (main_gc.gen2->array[bestMin].size != root->size ||
+                main_gc.gen2->array[bestMin].start != root->start) {
+                SortedList__treeNode_add(main_gc.gen2, *root);
+            }
+    } 
+    else {
+        SortedList__treeNode_add(main_gc.gen1, *root);
+    }
+}
+
+void gc_finallize() {
+    // mark 1gen
+    
+    // join_thr?
+
+    // cleanGen = heapAllocdProc()
+    // gen0 65%
+    // gen1 80%
+    // gen2 90%
+
+    /*
+        for root in rootList
+            if (root.isAvailable) toNextGen(node)
+            else freeNode(root)
+
+    */
+
+   // join_thr?
+}
+
+
 
 /*________ gcHeapRefTree */
 
@@ -251,13 +333,133 @@ typedef struct {
 
 gcHeapRefTree* gcHeapRefTree_init() {
     gcHeapRefTree* tree = (gcHeapRefTree*)malloc(sizeof(gcHeapRefTree));
-    tree->rootList = (void*) SortedList__treeNode_init(); 
+    tree->rootList = SortedList__treeNode_init(); 
+
+    return tree;
 }
+
+typedef struct {
+    SortedList__treeNode* gen0;
+    SortedList__treeNode* gen1;
+    SortedList__treeNode* gen2;
+
+    gcHeapRefTree* heapTree;
+    pthread_mutex_t _func_frame_mutex;
+} GC;
+
+GC main_gc;
+extern Mheap heap;
+
+void* _rsp;
+void* _ebp;
+
+
+void gc_init(GC* gc) {
+    gc->gen0 = SortedList__treeNode_init();
+    gc->gen1 = SortedList__treeNode_init();
+    gc->gen2 = SortedList__treeNode_init();
+
+    gc->heapTree = gcHeapRefTree_init();
+    gc->_func_frame_mutex = PTHREAD_MUTEX_INITIALIZER;
+}
+
+/*
+    todo:
+        - gc.scanFrame(start, end)
+        - gc.makeChildrens
+        - gc.mark()
+
+        - stack.anyRef( addr )
+         
+        - GC.NextGen( root )
+
+        - GC.Finallize
+            // for i in 1gen, ...next
+            _mark()
+            _free()
+
+        - GC.FinallizeObj( ref )
+*/
+ 
+
+void* gc_scan(pthread_t* gc_thread) {
+
+    // join_thr?
+
+    void* prev_rsp = NULL;
+    void* prev_ebp= NULL;
+    while(true) {
+
+        //printf("_(frame) rsp: %p ebp: %p \n", prev_rsp, prev_ebp);
+
+        void* rsp = _rsp;
+        void* ebp = _ebp;
+        //register void* ebp __asm__("ebp");
+        
+       //printf("___________(frame) rsp: %p ebp: %p, diff %i \n", pt, ebp, (void*)ebp - (void*)pt);
+
+        if (prev_ebp != ebp || prev_rsp != rsp) {
+            printf("(frame) rsp: %p ebp: %p, diff %i \n", rsp, ebp, (void*)ebp - (void*)rsp);
+            prev_ebp = ebp;
+            prev_rsp = rsp;
+        }
+    }
+
+    // join_thr?
+}
+
+void gc_start(pthread_t* gc_thread) {
+    // todo: field status enum
+    pthread_create(gc_thread, NULL, gc_scan, NULL);
+}
+
+void gc_updateFuncFrame() {
+    pthread_mutex_lock(&(main_gc._func_frame_mutex));
+    register void* rsp __asm__("rsp");
+    register void* ebp __asm__("ebp");
+    _rsp = rsp;
+    _ebp = ebp;
+    pthread_mutex_unlock(&(main_gc._func_frame_mutex));
+}
+
+
+
+
+int bar() {
+    GC_SET_FRAME;
+    return 5;
+}
+
+
+
 
 
 int main() {
 
-    int* p1 = (int*)_malloc(sizeof(int));
+    gc_init(&main_gc);
+
+    printf("%i\n", main_gc.heapTree->rootList->count);
+
+    pthread_t secId;
+    gc_start(&secId);
+
+    pthread_mutex_t new_mutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_lock(&new_mutex);
+    register void* rsp __asm__("rsp");
+    register void* ebp __asm__("ebp");
+    _rsp = rsp;
+    _ebp = ebp;
+    pthread_mutex_unlock(&new_mutex);
+    
+    sleep(1);
+
+    bar();
+
+    sleep(3);
+
+
+    /*
+        int* p1 = (int*)_malloc(sizeof(int));
 
     dump_heap_array();
 
@@ -302,6 +504,8 @@ int main() {
 
     //SortedList__treeNode_dump(list);
     //SortedList__treeNode_init(&temp_list);
+
+    */
 
     return 0;
 
