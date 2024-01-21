@@ -4,6 +4,8 @@
 #include "heapapi.h"
 #include <stdint.h>
 
+#include "../malloc/_malloc.h"
+
 #define LIST_DEFAULT_LEN 200
 
 #define LIST_EMPTY_TREENODE 
@@ -194,7 +196,7 @@ int treeNode_minIndex(SortedList__treeNode* list, void* target) {
         mid = (start + end)/2;
 
         if (list->array[mid].start == target) {
-            printf("equal=%i\n", mid);
+            //printf("equal=%i\n", mid);
             return mid;
         }
         else if (list->array[mid].start < target) {
@@ -205,14 +207,14 @@ int treeNode_minIndex(SortedList__treeNode* list, void* target) {
         }
 
         if (prev == mid) {
-            printf("same=%i\n", mid);
+            //printf("same=%i\n", mid);
             return mid;
         }
         else {
             prev = mid;
         }
 
-        printf("mid=%i\n", mid);
+        //printf("mid=%i\n", mid);
     }
 }
 
@@ -227,7 +229,7 @@ gcRefTreeNode* gcRefTreeNode_findNode(gcRefTreeNode* root, void* target) {
     }
     else {
         while (list->array[bestIndex].start < target) {
-            printf("index=%i\n", bestIndex);
+            //printf("index=%i\n", bestIndex);
             gcRefTreeNode* deep = gcRefTreeNode_findNode(&(list->array[bestIndex]), target);
             
             if (deep != NULL) {
@@ -254,6 +256,10 @@ gcHeapRefTree* gcHeapRefTree_init() {
 
 
 int main() {
+
+    int* p1 = (int*)_malloc(sizeof(int));
+
+    dump_heap_array();
 
 
     gcRefTreeNode* node = gcRefTreeNode_init(NULL, 1);

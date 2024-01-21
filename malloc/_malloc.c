@@ -4,36 +4,13 @@
 #include "heapapi.h"
 #include <stdint.h>
 
-#define ALLOCED_CHUNKS_LEN 1024
-
-#define HEAP_INIT_CAP 1024 * 64
-#define HEAP_MAX_CAP 1024 * 86
+#include "_malloc.h" 
 
 #define HEAP_INIT if (!heap.initialized) { \
     MHeapInit(); \
 }
 
-typedef struct  {
-    size_t size;
-    bool is_freed;
-    void* start_at;
-} HeapChunk;
-
-// the heap
-typedef struct {
-    void* start_at;
-    void* curr;
-
-    bool initialized;
-    size_t max_cap;
-    size_t allocated_cap;
-    HeapChunk alloced_chunks[ALLOCED_CHUNKS_LEN];
-    int alloced_index;
-} Mheap;
-
 Mheap heap;
-
-
 
 void MHeapInit() {
     void* start = (void*)HeapCreate(HEAP_NO_SERIALIZE, HEAP_INIT_CAP, HEAP_MAX_CAP);
@@ -46,7 +23,6 @@ void MHeapInit() {
     heap.alloced_index = 0;
     heap.curr = start;
 };
-
 
 void _heapAlloc(size_t size) {
     heap.alloced_index += 1;
@@ -335,9 +311,6 @@ void heap_collect_free() {
     qsort(heap.alloced_chunks, heap.alloced_index, sizeof(HeapChunk), sort_chunk_compare);
 }
 
-
-
-
 void _free(void* addr) {
     HEAP_INIT;
 
@@ -352,29 +325,13 @@ void _free(void* addr) {
     //*(uintptr_t*)addr = 0;
 }
 
-
-// склеивает все непрерывные чанки в один
-
-
-
-
-
-
-
-// shift_on
 /* Free()
     ИЛИ dic<index, addr> и хеш таблица 
     qsort(addr) - быстрая сортировка по alloced_chunks на основе адреса
 */ 
 
 
-// heap_collect
-// reorder
-
-
-
-
-int main() { 
+int main2() { 
 
     int* p1 = (int*)_malloc(sizeof(int));
 
