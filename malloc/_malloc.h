@@ -30,4 +30,6 @@ void* _malloc(size_t size);
 
 void _free(void* addr);
 
+void dump_chunks();
+
 void dump_heap_array();

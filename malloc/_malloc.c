@@ -118,7 +118,7 @@ int _indexOfMinFreed(size_t target, int startIndex, int endIndex) {
     if (mid <= 1) mid = 0;
 
     while(mid < heap.alloced_index) {
-        printf("arr[%i] free=%i size=%i \n", mid, heap.alloced_chunks[mid].is_freed, heap.alloced_chunks[mid].size);
+        //printf("arr[%i] free=%i size=%i \n", mid, heap.alloced_chunks[mid].is_freed, heap.alloced_chunks[mid].size);
         if (heap.alloced_chunks[mid].is_freed &&
             heap.alloced_chunks[mid].size >= target) {
             return mid;
@@ -141,7 +141,7 @@ void dump_heap() {
 void dump_chunks() {
     printf("dump: ALLOCED_CHUNKS\ncount: %i\n", heap.alloced_index);
     for(int i = 0; i < heap.alloced_index; i++) {
-        printf("start: %p\nsize: %i\nfree: %i\n------------\n", heap.alloced_chunks[i].start_at, heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed);
+        printf("start: %p\nsize: %i\nfree: %i\nheapRef:%p\n------------\n", heap.alloced_chunks[i].start_at, heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed, &(heap.alloced_chunks[i]));
     }
 }
 

@@ -25,6 +25,85 @@ extern int _heap_indexOfChunk(void* target, int startIndex, int endIndex);
 // add malloc realization with heap
 // add gcHeapRefTree.addRoot?
 
+/*
+    когда собирать дерево?
+    как маркнуть обьекты в куче:
+        предполагается что в дереве сейчас активные обьекты, остальные - нет
+        -> начинаем скан в куче и сверяем с деревом
+
+    ДЛЯ ОЧИСТКИ (С КУЧИ)
+    1) начинаем бежать по куче (нужна метка на конец скана)
+    2) у нас уже должны быть маркнуты root в дереве, которые могут быть очищены
+    2) сверяем есть ли chunk.addr 
+ 
+    FIX:
+        - с кучи: заполнять деерво
+        - с фрейма: маркать используемые обьекты в дереве
+
+    node {
+        start*
+        end*
+        is_available
+        children_list 
+    }
+
+
+    1. checkFrame()
+        _join_mainThread
+        устанавливает взаимосвязь стека и ссылок в куче
+        heapChunk = getFromHeap( *[stack_win] ) - получает чанк из кучи (bs)
+        list<chunks> = getChildrenRefs( heapChunk ) - проходится по chunk.size и смотрит ссылки
+        makeNode( heapChunk, list<chunks> childrens) - либо создаёт root, либо получает, либо прикрепляем ноду к дереву вместе с дочерними элементами
+        markNode( node ) - помечает только текущий нод, без дочерних
+        _join_mainThread
+        ----------------
+        построенное дерево с помеченными элементами, которые используется сейчас на стеке (помечены available)
+
+    2. gc.mark()
+        пробегается по текущему дереву и смотрит на метку node.available
+        помечает листья и корни, если в результате скана корень не имеет available 
+            -> добавить нод в очередь на очистку
+            -> либо в след поколение
+        --------------------
+        фришные ноды будут удалены из дерева rootList
+        нефришные ноды будут перемещены в gen0
+
+    gc.mark делать вне finallize?
+        - будут готовые поколения обьектов gen0 (первая на очистку), gen1, gen2
+
+    3. gc.finallize
+        получить процент загрузки кучи и определить поколение для очистки
+        free(gen)
+        todo: проверить обьекты в куче после очистки на корректность
+
+    4. gc.finallizeRef (heapAddr)
+        найти ноду с таким адресом
+        очистить и удалить ноду из дерева (и удалить потомков)? это может быть не root обьект
+
+*/
+/*
+void gc_toNextGen(gcRefTreeNode* root) {
+    
+    int bestMin = treeNode_minIndex(main_gc.gen1, root->start);
+    // todo: size&ptr good node identifier?
+    // already exists in gen1
+    // todo: add gen0
+    // todo: remove from prev gen
+    if (main_gc.gen1->array[bestMin].size == root->size &&
+        main_gc.gen1->array[bestMin].start == root->start) {
+
+            int bestMin2 = treeNode_minIndex(main_gc.gen2, root->start);
+            if (main_gc.gen2->array[bestMin].size != root->size ||
+                main_gc.gen2->array[bestMin].start != root->start) {
+                SortedList__treeNode_add(main_gc.gen2, *root);
+            }
+    } 
+    else {
+        SortedList__treeNode_add(main_gc.gen1, *root);
+    }
+}
+*/
+
 
 /*________ SortedList__uintpt */
 
@@ -110,8 +189,8 @@ int SortedList__treeNode_compare(const void* a, const void* b) {
     gcRefTreeNode ca = * ((gcRefTreeNode*)a);
     gcRefTreeNode cb = * ((gcRefTreeNode*)b);
 
-    if (ca.start == -1) return -1;
-    else if (cb.start == -1) return 1;
+    if (ca.start == _empty_refNode.start) return -1;
+    else if (cb.start == _empty_refNode.start) return 1;
 
     if (ca.start == cb.start) return 0;
     else if (cb.start > ca.start) return -1;
@@ -169,6 +248,29 @@ void SortedList__treeNode_clean(SortedList__treeNode* list) {
 }
 
 
+/*________ gcHeapRefTree */
+
+typedef struct {
+    SortedList__treeNode* rootList;
+} gcHeapRefTree;
+
+gcHeapRefTree* gcHeapRefTree_init() {
+    gcHeapRefTree* tree = (gcHeapRefTree*)malloc(sizeof(gcHeapRefTree));
+    tree->rootList = SortedList__treeNode_init(); 
+
+    printf("gcHeapRefTree_init\n");
+
+    return tree;
+}
+
+typedef struct {
+    gcHeapRefTree* gen0_tree;
+    gcHeapRefTree* gen1_tree;
+    gcHeapRefTree* gen2_tree;
+
+    gcHeapRefTree* heapTree;
+    pthread_mutex_t _func_frame_mutex;
+} GC;
 
 
 gcRefTreeNode* gcRefTreeNode_init(void* start, int size) {
@@ -224,7 +326,11 @@ int treeNode_minIndex(SortedList__treeNode* list, void* target) {
 
         if (prev == mid) {
             //printf("same=%i\n", mid);
-            return mid;
+
+            if (list->array[mid + 1].start == target) {
+                return mid +1;
+            }
+            else  return mid;
         }
         else {
             prev = mid;
@@ -258,9 +364,39 @@ gcRefTreeNode* gcRefTreeNode_findNode(gcRefTreeNode* root, void* target) {
         return NULL;
     }
 }
+
+gcRefTreeNode* gcRefTreeNode_findNodeFromTree(gcHeapRefTree* tree, void* target) {
+    // todo: maybe return heapChunk
+    SortedList__treeNode* list = (SortedList__treeNode*)tree->rootList;
+
+    //printf("___gcRefTreeNode_findNodeFromTree IN\n");
+
+    int bestIndex = treeNode_minIndex(list, target);
+
+    //printf("___gcRefTreeNode_findNodeFromTree bestMin=%i target=%p \n", bestIndex, target);
+
+    //dump_chunks();
+
+    if (list->array[bestIndex].start == target) {
+        
+        return &(list->array[bestIndex]);
+    }
+    else {
+        while (list->array[bestIndex].start < target) {
+            //printf("index=%i\n", bestIndex);
+            gcRefTreeNode* deep = gcRefTreeNode_findNode(&(list->array[bestIndex]), target);
+            
+            if (deep != NULL) {
+                return deep;
+            }
+            
+            bestIndex++;
+        }
+
+        return NULL;
+    }
+}
  
-
-
 void gcRefTreeNode_makeChildrens( gcRefTreeNode* node, SortedList__treeNode* child_obj_list) {
     SortedList__treeNode* list = (SortedList__treeNode*)node->childrens;
     SortedList__treeNode_clean(list);
@@ -275,6 +411,13 @@ void gcRefTreeNode_makeChildrens( gcRefTreeNode* node, SortedList__treeNode* chi
 
 
 
+GC main_gc;
+extern Mheap heap;
+
+void* _rsp;
+void* _ebp;
+
+
 bool stack_anyRef(void* heapAddr) {
     // sliding window from rsp to ebp
     // check (*[window]) == heapAddr 
@@ -285,62 +428,108 @@ void gc_mark() {
     // mark current rootList
 }
 
-void gc_toNextGen(gcRefTreeNode* root) {
-    
-    int bestMin = treeNode_minIndex(main_gc.gen1, root->start);
-    // todo: size&ptr good node identifier?
-    // already exists in gen1
-    // todo: add gen0
-    // todo: remove from prev gen
-    if (main_gc.gen1->array[bestMin].size == root->size &&
-        main_gc.gen1->array[bestMin].start == root->start) {
 
-            int bestMin2 = treeNode_minIndex(main_gc.gen2, root->start);
-            if (main_gc.gen2->array[bestMin].size != root->size ||
-                main_gc.gen2->array[bestMin].start != root->start) {
-                SortedList__treeNode_add(main_gc.gen2, *root);
+
+
+
+
+
+
+
+int heapTree_pullChildrens(Mheap* heap, gcRefTreeNode* node) {
+    
+    SortedList__treeNode* ls = (SortedList__treeNode*)node->childrens;
+    SortedList__treeNode_clean(ls); 
+
+    void* end = node->start + node->size;
+    //printf("----END=%p END+1=%p", end, (end+1));
+
+    if (node->size < 8) return;
+
+    void* ptr = node->start+0;
+
+        while(ptr < end) {
+            // FIX: void* to uintptr_t для того чтобы можно было преобразовать в тип
+            printf("____heapTree_pullChildrens ptr=%p, current=%p, end=%p &=%p\n", node->start, ptr, end, ((HeapChunk*)(ptr))->start_at);
+
+            int findIndex = _heap_indexOfChunk(ptr, 0, heap->alloced_index);
+
+            if (findIndex != -1) {
+
+                //printf("___ref: %p index=%i\n", ptr, findIndex);
+
+                // FIX: to refs
+                gcRefTreeNode* crtNode = gcRefTreeNode_init(
+                    heap->alloced_chunks[findIndex].start_at,
+                    heap->alloced_chunks[findIndex].size);
+
+                // FIX: to refs
+                SortedList__treeNode_add(ls, *crtNode);
             }
-    } 
+            ptr += STACK_FRAME_PTRDIFF;
+        }
+
+    return ls->count;
+}
+
+void heapTree_makeNode(Mheap* heap, gcHeapRefTree* target_tree, size_t size, void* start) {
+    
+    gcRefTreeNode* find = gcRefTreeNode_findNodeFromTree(target_tree, start);
+    
+    if (find != NULL) {
+        printf("heapTree_makeNode: start=%p find=%p \n", start, find->start);
+    }
     else {
-        SortedList__treeNode_add(main_gc.gen1, *root);
+        printf("heapTree_makeNode: start=%p find=NULL \n", start);
+    }
+
+    //gcdump_tree();
+
+    // add in roots
+    if (find == NULL) {
+        //printf("heapTree_makeNode: add root \n");
+        // TODO: memory leek. сделать листы через ссылки
+        gcRefTreeNode* node = gcRefTreeNode_init(start, size);
+        SortedList__treeNode_add(target_tree->rootList, *node);
+        heapTree_pullChildrens(heap, node);
+    }
+    // add childrens
+    else {
+        //printf("heapTree_makeNode: add childrens \n");
+        // pull childrens
+        // FIX: DETERMINE MHeap CONTROL
+        heapTree_pullChildrens(heap, find);
     }
 }
 
+void gcdump_tree() {
+    //ap_array();
+    printf("gen0_tree: [");
+    for(int i = 0; i < main_gc.gen0_tree->rootList->index; i++) {
+        SortedList__treeNode* ls = (SortedList__treeNode*)(main_gc.gen0_tree->rootList->array[i].childrens);
+        printf("%p(%i)[%i], ", main_gc.gen0_tree->rootList->array[i].start, main_gc.gen0_tree->rootList->array[i].size, ls->count);
+    }
+    printf("]\n");
+}
 
-
-
-void heapTree_build(Mheap* heap) {
+void heapTree_build(Mheap* heap, gcHeapRefTree* heap_tree_gen) {
     /*
         пробегает по чанку, от начала до конца его выделенного адреса
         сканирует есть ли в выделенном пространстве адрес в кучу (ссылка на другой обьект в куче)
-        
-        makeNode()
-
-        for chunk in heap
-            
-            pullChildrens( heap, node )
-            makeNode( tree, node )
-
     */
 
+    printf("___heapTree_build index=%i\n", heap->alloced_index);
+    //dump_heap_array();
+
     for(int i = 0; i < heap->alloced_index; i++) {
-        // узнать есть ли уже в дереве
-        // 
+        //printf("== %p \n", heap->alloced_chunks[i].start_at);
+        
+        heapTree_makeNode(
+            heap,
+            heap_tree_gen, 
+            heap->alloced_chunks[i].size,
+            heap->alloced_chunks[i].start_at);
     }
-
-}
-
-void heapTree_makeNode(gcHeapRefTree* tree, size_t size, void* start) {
-    // чекнуть есть ли уже среди корней
-    // getChildrens
-    // findNode
-    // addRoot
-    // 
-}
-
-// to makeNode
-void heapTree_pullChildrens() {
-
 }
 
 
@@ -375,8 +564,6 @@ void gc_scanFrame(void* start, void* end) {
 
     */
 
-
-
     while(start <= end) {
 
         // get chunk
@@ -393,84 +580,12 @@ void gc_scanFrame(void* start, void* end) {
 }
 
 
-SortedList__uintpt* gcHeap_pullChildrens(Mheap* heap, int chunk_index) {
-    SortedList__uintpt* ls = (SortedList__uintpt*)malloc(sizeof(SortedList__uintpt));
-    HeapChunk chunk = heap->alloced_chunks[chunk_index];
-
-    void* ptr = chunk.start_at;
-    while(ptr <= (void*)(ptr+chunk.size)) {
-
-        int findIndex = _heap_indexOfChunk(ptr, 0, heap->alloced_index);
-
-        if (findIndex != -1) {
-            //SortedList__uintpt_add(ls, )
-        }
-
-        ptr += 1;
-    }
-}
-
-
-
-/*
-    когда собирать дерево?
-    как маркнуть обьекты в куче:
-        предполагается что в дереве сейчас активные обьекты, остальные - нет
-        -> начинаем скан в куче и сверяем с деревом
-
-    ДЛЯ ОЧИСТКИ (С КУЧИ)
-    1) начинаем бежать по куче (нужна метка на конец скана)
-    2) у нас уже должны быть маркнуты root в дереве, которые могут быть очищены
-    2) сверяем есть ли chunk.addr 
- 
-    FIX:
-        - с кучи: заполнять деерво
-        - с фрейма: маркать используемые обьекты в дереве
-
-    node {
-        start*
-        end*
-        is_available
-        children_list 
-    }
-
-
-    1. checkFrame()
-        _join_mainThread
-        устанавливает взаимосвязь стека и ссылок в куче
-        heapChunk = getFromHeap( *[stack_win] ) - получает чанк из кучи (bs)
-        list<chunks> = getChildrenRefs( heapChunk ) - проходится по chunk.size и смотрит ссылки
-        makeNode( heapChunk, list<chunks> childrens) - либо создаёт root, либо получает, либо прикрепляем ноду к дереву вместе с дочерними элементами
-        markNode( node ) - помечает только текущий нод, без дочерних
-        _join_mainThread
-        ----------------
-        построенное дерево с помеченными элементами, которые используется сейчас на стеке (помечены available)
-
-    2. gc.mark()
-        пробегается по текущему дереву и смотрит на метку node.available
-        помечает листья и корни, если в результате скана корень не имеет available 
-            -> добавить нод в очередь на очистку
-            -> либо в след поколение
-        --------------------
-        фришные ноды будут удалены из дерева rootList
-        нефришные ноды будут перемещены в gen0
-
-    gc.mark делать вне finallize?
-        - будут готовые поколения обьектов gen0 (первая на очистку), gen1, gen2
-
-    3. gc.finallize
-        получить процент загрузки кучи и определить поколение для очистки
-        free(gen)
-        todo: проверить обьекты в куче после очистки на корректность
-
-    4. gc.finallizeRef (heapAddr)
-        найти ноду с таким адресом
-        очистить и удалить ноду из дерева (и удалить потомков)? это может быть не root обьект
-
-*/
 
 
 void gc_finallize() {
+    
+    //
+    
     // mark 1gen
     
     // join_thr?
@@ -492,39 +607,12 @@ void gc_finallize() {
 
 
 
-/*________ gcHeapRefTree */
-
-typedef struct {
-    SortedList__treeNode* rootList;
-} gcHeapRefTree;
-
-gcHeapRefTree* gcHeapRefTree_init() {
-    gcHeapRefTree* tree = (gcHeapRefTree*)malloc(sizeof(gcHeapRefTree));
-    tree->rootList = SortedList__treeNode_init(); 
-
-    return tree;
-}
-
-typedef struct {
-    SortedList__treeNode* gen0;
-    SortedList__treeNode* gen1;
-    SortedList__treeNode* gen2;
-
-    gcHeapRefTree* heapTree;
-    pthread_mutex_t _func_frame_mutex;
-} GC;
-
-GC main_gc;
-extern Mheap heap;
-
-void* _rsp;
-void* _ebp;
 
 
 void gc_init(GC* gc) {
-    gc->gen0 = SortedList__treeNode_init();
-    gc->gen1 = SortedList__treeNode_init();
-    gc->gen2 = SortedList__treeNode_init();
+    gc->gen0_tree = gcHeapRefTree_init();
+    gc->gen1_tree = gcHeapRefTree_init();
+    gc->gen2_tree = gcHeapRefTree_init();
 
     gc->heapTree = gcHeapRefTree_init();
     gc->_func_frame_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -566,13 +654,17 @@ void* gc_scan(pthread_t* gc_thread) {
        //printf("___________(frame) rsp: %p ebp: %p, diff %i \n", pt, ebp, (void*)ebp - (void*)pt);
 
         if (prev_ebp != ebp || prev_rsp != rsp) {
-            
-            printf("(frame) rsp: %p ebp: %p, diff %i \n", rsp, ebp, (void*)ebp - (void*)rsp);
+
+            //printf("(frame) rsp: %p ebp: %p, diff %i \n", rsp, ebp, (void*)ebp - (void*)rsp);
+
+            if (ebp > rsp) {
+                printf("(frame) rsp: %p ebp: %p, diff %i \n", rsp, ebp, (void*)ebp - (void*)rsp);
+                // TODO: периодически вызывать build_tree
+                //heapTree_build(&heap, main_gc.gen0_tree);
+            }
+
             prev_ebp = ebp;
             prev_rsp = rsp;
-
-            // TODO: периодически вызывать build_tree
-
         }
     }
 
@@ -584,27 +676,49 @@ void gc_start(pthread_t* gc_thread) {
     pthread_create(gc_thread, NULL, gc_scan, NULL);
 }
 
-
-
-
 void gc_updateFuncFrame() {
-    pthread_mutex_lock(&(main_gc._func_frame_mutex));
+    pthread_mutex_lock((&main_gc._func_frame_mutex));
     register void* rsp __asm__("rsp");
     register void* ebp __asm__("ebp");
     _rsp = rsp;
     _ebp = ebp;
-    pthread_mutex_unlock(&(main_gc._func_frame_mutex));
+    pthread_mutex_unlock((&main_gc._func_frame_mutex));
 }
 
+typedef struct {
+    int f;
+    int* pt1;
+} Foo;
 
+typedef struct {
+    int f;
+    int* pt1;
+    int* pt2;
+    int* pt3;
+} Bar;
 
 
 int bar() {
+    void* f1;
+    void* f2;
+    void* f3;
+    void* f4;
+    void* f5;
+    //double* ptr = (double*)_malloc(sizeof(double));
+    Foo* ptr2 = (Foo*)_malloc(sizeof(Foo));
+    ptr2->pt1 = _malloc(4);
+
+    //Bar* ptr3 = (Bar*)_malloc(sizeof(Bar));
+
+
+    int* t1 = _malloc(4);
+
+    printf("------------------ &=%p \n", &(t1));
+    printf("------------------ p=%p \n", (t1));
+
     GC_SET_FRAME;
     return 5;
 }
-
-
 
 
 
@@ -612,24 +726,25 @@ int main() {
 
     gc_init(&main_gc);
 
-    printf("%i\n", main_gc.heapTree->rootList->count);
+    long* ptr = _malloc(sizeof(long));
+
+    GC_SET_FRAME;
+
+    dump_heap_array();
 
     pthread_t secId;
     gc_start(&secId);
 
-    pthread_mutex_t new_mutex = PTHREAD_MUTEX_INITIALIZER;
-    pthread_mutex_lock(&new_mutex);
-    register void* rsp __asm__("rsp");
-    register void* ebp __asm__("ebp");
-    _rsp = rsp;
-    _ebp = ebp;
-    pthread_mutex_unlock(&new_mutex);
-    
     sleep(1);
 
     bar();
 
-    sleep(3);
+    heapTree_build(&heap, main_gc.gen0_tree);
+
+    gcdump_tree();
+    dump_chunks();
+
+    sleep(10);
 
 
     /*
