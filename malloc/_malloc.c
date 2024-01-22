@@ -45,7 +45,7 @@ void* push_back(size_t size) {
 }
 
 // [+] двоичный поиск на основе адреса(размера) среди alloced_chunks
-int _indexOfAddr(void* target, int startIndex, int endIndex) {
+int _heap_indexOfChunk(void* target, int startIndex, int endIndex) {
     
     if (startIndex > endIndex) return -1;
 
@@ -316,7 +316,7 @@ void _free(void* addr) {
 
     // todo: asserts, if
 
-    int findIndex = _indexOfAddr(addr, 0, heap.alloced_index);
+    int findIndex = _heap_indexOfChunk(addr, 0, heap.alloced_index);
 
     heap.alloced_chunks[findIndex].is_freed = true;
     heap.allocated_cap -= heap.alloced_chunks[findIndex].size;
@@ -360,7 +360,7 @@ int main2() {
 
     // 1 2 1 2(0)
 
-    //printf("res=%i \n", _indexOfAddr((void*)p1, 0, heap.alloced_index));
+    //printf("res=%i \n", _heap_indexOfChunk((void*)p1, 0, heap.alloced_index));
 
     return 0;
 }

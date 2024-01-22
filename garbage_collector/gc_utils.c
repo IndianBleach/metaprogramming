@@ -15,7 +15,9 @@
 
 #define GC_SET_FRAME gc_updateFuncFrame();
 
+const int STACK_FRAME_PTRDIFF = sizeof(uintptr_t);
 
+extern int _heap_indexOfChunk(void* target, int startIndex, int endIndex);
 
 // todo: sortedList flexible capacity
 // add gc.reserveRef(ref)
@@ -289,6 +291,7 @@ void gc_toNextGen(gcRefTreeNode* root) {
     // todo: size&ptr good node identifier?
     // already exists in gen1
     // todo: add gen0
+    // todo: remove from prev gen
     if (main_gc.gen1->array[bestMin].size == root->size &&
         main_gc.gen1->array[bestMin].start == root->start) {
 
@@ -302,6 +305,170 @@ void gc_toNextGen(gcRefTreeNode* root) {
         SortedList__treeNode_add(main_gc.gen1, *root);
     }
 }
+
+
+
+
+void heapTree_build(Mheap* heap) {
+    /*
+        пробегает по чанку, от начала до конца его выделенного адреса
+        сканирует есть ли в выделенном пространстве адрес в кучу (ссылка на другой обьект в куче)
+        
+        makeNode()
+
+        for chunk in heap
+            
+            pullChildrens( heap, node )
+            makeNode( tree, node )
+
+    */
+
+    for(int i = 0; i < heap->alloced_index; i++) {
+        // узнать есть ли уже в дереве
+        // 
+    }
+
+}
+
+void heapTree_makeNode(gcHeapRefTree* tree, size_t size, void* start) {
+    // чекнуть есть ли уже среди корней
+    // getChildrens
+    // findNode
+    // addRoot
+    // 
+}
+
+// to makeNode
+void heapTree_pullChildrens() {
+
+}
+
+
+void gc_scanFrame(void* start, void* end) {
+
+    /*
+        TODO:
+        периодически собирать дерево? где лучший момент
+        добавить в чанк meta.gc_status flag?
+
+        СОБИРАТЬ ДЕРЕВО?
+            - в фоне
+            - конечный адрес в хипе для сборки (если на стеке есть ссылка то безсполезно) как не собрать лишнего?
+            - chunk.gc_status (parsed, noparsed)
+
+        gc.scanFrame()
+            1. пройтись по списку адресов
+            2. пометить эти ноды как .is_available
+
+        gen0 tree (неотсканированное на основе кучи) построено в результате периодических вызовов
+        gen1 tree (после 1 скана)
+        gen2 tree (после 2 скана)
+
+        gc.cleanTree()
+            пробегает по дереву (по рутам), 
+                очищает - если !root.is_available
+                переносит в след поколение - если .is_available. gen1Tree.addRoot(root)
+            gen0Tree.clean()
+
+        gc.freeNode( root )
+        gc.nextGen( node )
+
+    */
+
+
+
+    while(start <= end) {
+
+        // get chunk
+        int findIndex = _heap_indexOfChunk(start, 0, heap.alloced_index);
+
+        // get depends refs
+        if (findIndex != -1) {
+
+        }
+
+        start += STACK_FRAME_PTRDIFF;
+    }
+
+}
+
+
+SortedList__uintpt* gcHeap_pullChildrens(Mheap* heap, int chunk_index) {
+    SortedList__uintpt* ls = (SortedList__uintpt*)malloc(sizeof(SortedList__uintpt));
+    HeapChunk chunk = heap->alloced_chunks[chunk_index];
+
+    void* ptr = chunk.start_at;
+    while(ptr <= (void*)(ptr+chunk.size)) {
+
+        int findIndex = _heap_indexOfChunk(ptr, 0, heap->alloced_index);
+
+        if (findIndex != -1) {
+            //SortedList__uintpt_add(ls, )
+        }
+
+        ptr += 1;
+    }
+}
+
+
+
+/*
+    когда собирать дерево?
+    как маркнуть обьекты в куче:
+        предполагается что в дереве сейчас активные обьекты, остальные - нет
+        -> начинаем скан в куче и сверяем с деревом
+
+    ДЛЯ ОЧИСТКИ (С КУЧИ)
+    1) начинаем бежать по куче (нужна метка на конец скана)
+    2) у нас уже должны быть маркнуты root в дереве, которые могут быть очищены
+    2) сверяем есть ли chunk.addr 
+ 
+    FIX:
+        - с кучи: заполнять деерво
+        - с фрейма: маркать используемые обьекты в дереве
+
+    node {
+        start*
+        end*
+        is_available
+        children_list 
+    }
+
+
+    1. checkFrame()
+        _join_mainThread
+        устанавливает взаимосвязь стека и ссылок в куче
+        heapChunk = getFromHeap( *[stack_win] ) - получает чанк из кучи (bs)
+        list<chunks> = getChildrenRefs( heapChunk ) - проходится по chunk.size и смотрит ссылки
+        makeNode( heapChunk, list<chunks> childrens) - либо создаёт root, либо получает, либо прикрепляем ноду к дереву вместе с дочерними элементами
+        markNode( node ) - помечает только текущий нод, без дочерних
+        _join_mainThread
+        ----------------
+        построенное дерево с помеченными элементами, которые используется сейчас на стеке (помечены available)
+
+    2. gc.mark()
+        пробегается по текущему дереву и смотрит на метку node.available
+        помечает листья и корни, если в результате скана корень не имеет available 
+            -> добавить нод в очередь на очистку
+            -> либо в след поколение
+        --------------------
+        фришные ноды будут удалены из дерева rootList
+        нефришные ноды будут перемещены в gen0
+
+    gc.mark делать вне finallize?
+        - будут готовые поколения обьектов gen0 (первая на очистку), gen1, gen2
+
+    3. gc.finallize
+        получить процент загрузки кучи и определить поколение для очистки
+        free(gen)
+        todo: проверить обьекты в куче после очистки на корректность
+
+    4. gc.finallizeRef (heapAddr)
+        найти ноду с таким адресом
+        очистить и удалить ноду из дерева (и удалить потомков)? это может быть не root обьект
+
+*/
+
 
 void gc_finallize() {
     // mark 1gen
@@ -399,9 +566,13 @@ void* gc_scan(pthread_t* gc_thread) {
        //printf("___________(frame) rsp: %p ebp: %p, diff %i \n", pt, ebp, (void*)ebp - (void*)pt);
 
         if (prev_ebp != ebp || prev_rsp != rsp) {
+            
             printf("(frame) rsp: %p ebp: %p, diff %i \n", rsp, ebp, (void*)ebp - (void*)rsp);
             prev_ebp = ebp;
             prev_rsp = rsp;
+
+            // TODO: периодически вызывать build_tree
+
         }
     }
 
@@ -412,6 +583,9 @@ void gc_start(pthread_t* gc_thread) {
     // todo: field status enum
     pthread_create(gc_thread, NULL, gc_scan, NULL);
 }
+
+
+
 
 void gc_updateFuncFrame() {
     pthread_mutex_lock(&(main_gc._func_frame_mutex));
