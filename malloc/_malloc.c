@@ -142,7 +142,7 @@ void dump_heap() {
 void dump_chunks() {
     printf("dump: ALLOCED_CHUNKS\ncount: %i\n", heap.alloced_index);
     for(int i = 0; i < heap.alloced_index; i++) {
-        printf("start: %p\nsize: %i\nfree: %i\nheapRef2:%p\n------------\n", heap.alloced_chunks[i].start_at, heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed, *(uintptr_t*)(heap.alloced_chunks[i]).start_at);
+        printf("start: %p\nsize: %i\nfree: %i\n------------\n", heap.alloced_chunks[i].start_at, heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed);
     }
 }
 
@@ -337,21 +337,35 @@ typedef struct {
 
 int main2() { 
 
+    register void* rsp __asm__("rsp");
+    register void* ebp __asm__("ebp");
+
+    int* ptr = (int*)_malloc(sizeof(int));
+    int* ptr2 = (int*)_malloc(sizeof(int));
+
+    void* cur = rsp;
     
-    malloc(4);
-    malloc(500);
+    while(cur < ebp) {
+        
+        if (((uintptr_t)cur) % 8 == 0) {
+            //printf("cur=%p \n", cur);
+            void* pt = (void*)cur;
+            printf("hp=%p ref=%p \n", pt, *(uintptr_t*)pt);
+        }
+        
 
-    int* p4 = (int*)_malloc(sizeof(int));
+        cur+=1;
+    }    
 
-    Foo* p1 = (Foo*)_malloc(sizeof(Foo*));
-    p1->pt1 = _malloc(4);
+    //void* hp = (void*)ptr;
+    
+    //printf("hp=%p \n", hp);
 
-    //int* p2 = (int*)_malloc(sizeof(int));
+    //dump_chunks();
 
-    dump_chunks();
-
-    printf("void*=%p, val=%p \n", p1, *(uintptr_t*)(p1));
-    printf("void*=%p, val=%p \n", p1->pt1, *(uintptr_t*)(p1->pt1));
+    printf("stack=%p, heap=%p \n", &ptr, (uintptr_t*)ptr);
+    printf("stack=%p, heap=%p \n", &ptr2, (uintptr_t*)ptr2);
+    //printf("void*=%p, val=%p \n", p1->pt1, *(uintptr_t*)(p1->pt1));
 
     //heap_shift_left(1, 1);
 
