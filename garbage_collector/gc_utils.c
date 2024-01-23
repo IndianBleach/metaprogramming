@@ -620,8 +620,6 @@ void gcMarker_scanFrame(void* start, void* end) {
             if (find != NULL) {
                 printf("FINDED=%p \n", find->start);
                 find->meta_isAvailable = true;
-            } else {
-                printf("NF=%p \n", *(uintptr_t*)pt);
             }
         }
 
@@ -822,10 +820,11 @@ int main() {
     gc_init(&main_gc);
 
     double* ptr = _malloc(sizeof(double));
+    int* ptr2 = _malloc(sizeof(int));
 
     //GC_SET_FRAME;
 
-    //Foo* ptrfoo = bar();
+    Foo* ptr3 = bar();
 
     //GC_SET_FRAME;
 
