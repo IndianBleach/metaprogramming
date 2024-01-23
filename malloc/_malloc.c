@@ -13,8 +13,9 @@
 Mheap heap;
 
 void MHeapInit() {
-    void* start = (void*)HeapCreate(HEAP_NO_SERIALIZE, HEAP_INIT_CAP, HEAP_MAX_CAP);
-
+    uintptr_t* start = (uintptr_t*)HeapCreate(HEAP_NO_SERIALIZE, HEAP_INIT_CAP, HEAP_MAX_CAP);
+    printf("start=%p\n", start);
+    printf("start=%p\n", *start);
     heap.max_cap = HEAP_MAX_CAP;
     heap.allocated_cap = 0; 
     heap.start_at = start;
@@ -31,9 +32,9 @@ void _heapAlloc(size_t size) {
 }
 
 // allocate and push new chunk to end of heap
-void* push_back(size_t size) {
+uintptr_t* push_back(size_t size) {
     int index = heap.alloced_index;
-    void* start = heap.curr; 
+    uintptr_t* start = heap.curr; 
 
     // todo: add log, Asserts
     _heapAlloc(size);
@@ -45,7 +46,7 @@ void* push_back(size_t size) {
 }
 
 // [+] двоичный поиск на основе адреса(размера) среди alloced_chunks
-int _heap_indexOfChunk(void* target, int startIndex, int endIndex) {
+int _heap_indexOfChunk(uintptr_t* target, int startIndex, int endIndex) {
     
     if (startIndex > endIndex) return -1;
 
@@ -96,7 +97,7 @@ int _indexOfMinFreed(size_t target, int startIndex, int endIndex) {
 
         prev = mid;
 
-        printf("mid=%i\n", mid);
+        //printf("mid=%i\n", mid);
 
         if (heap.alloced_chunks[mid].size > target) {
             endIndex = mid--;
@@ -141,7 +142,7 @@ void dump_heap() {
 void dump_chunks() {
     printf("dump: ALLOCED_CHUNKS\ncount: %i\n", heap.alloced_index);
     for(int i = 0; i < heap.alloced_index; i++) {
-        printf("start: %p\nsize: %i\nfree: %i\nheapRef:%p\n------------\n", heap.alloced_chunks[i].start_at, heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed, &(heap.alloced_chunks[i]));
+        printf("start: %p\nsize: %i\nfree: %i\nheapRef2:%p\n------------\n", heap.alloced_chunks[i].start_at, heap.alloced_chunks[i].size, heap.alloced_chunks[i].is_freed, *(uintptr_t*)(heap.alloced_chunks[i]).start_at);
     }
 }
 
@@ -199,7 +200,7 @@ void heap_shift_left(int startIndex, int toStep) {
 }
 
 // инсерт в чанк, разделяет его на две новые части
-void* insert_at(int index, size_t target_size) {
+uintptr_t* insert_at(int index, size_t target_size) {
     // update cur
     // shift
 
@@ -211,7 +212,7 @@ void* insert_at(int index, size_t target_size) {
     int new_index = index + 1;
 
     //printf("st=%p\n", heap.alloced_chunks[index].start_at);
-    void* new_addr = heap.alloced_chunks[index].start_at + (int)target_size;
+    uintptr_t* new_addr = heap.alloced_chunks[index].start_at + (int)target_size;
 
     //printf(" size=%i\nleft: %p\nright:%p\n", target_size, heap.alloced_chunks[index].start_at, new_addr);
 
@@ -316,7 +317,7 @@ void _free(void* addr) {
 
     // todo: asserts, if
 
-    int findIndex = _heap_indexOfChunk(addr, 0, heap.alloced_index);
+    int findIndex = _heap_indexOfChunk((uintptr_t*)addr, 0, heap.alloced_index);
 
     heap.alloced_chunks[findIndex].is_freed = true;
     heap.allocated_cap -= heap.alloced_chunks[findIndex].size;
@@ -330,31 +331,27 @@ void _free(void* addr) {
     qsort(addr) - быстрая сортировка по alloced_chunks на основе адреса
 */ 
 
+typedef struct {
+    int* pt1;
+} Foo;
 
 int main2() { 
 
-    int* p1 = (int*)_malloc(sizeof(int));
+    
+    malloc(4);
+    malloc(500);
 
-    int* p2 = (int*)_malloc(sizeof(int));
+    int* p4 = (int*)_malloc(sizeof(int));
 
-    int* p3 = (int*)_malloc(sizeof(int));
+    Foo* p1 = (Foo*)_malloc(sizeof(Foo*));
+    p1->pt1 = _malloc(4);
 
-    double* p4 = (double*)_malloc(sizeof(double));
+    //int* p2 = (int*)_malloc(sizeof(int));
 
-    int* p5 = (int*)_malloc(sizeof(int));
+    dump_chunks();
 
-    _free(p2);
-    _free(p3);
-
-    //printf("qqdq\n");
-
-    heap_collect_free();
-
-    dump_heap_array();
-
-    double* p6 = (double*)_malloc(sizeof(double));
-
-    dump_heap_array();
+    printf("void*=%p, val=%p \n", p1, *(uintptr_t*)(p1));
+    printf("void*=%p, val=%p \n", p1->pt1, *(uintptr_t*)(p1->pt1));
 
     //heap_shift_left(1, 1);
 

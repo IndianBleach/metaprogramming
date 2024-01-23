@@ -9,13 +9,13 @@
 typedef struct  {
     size_t size;
     bool is_freed;
-    void* start_at;
+    uintptr_t* start_at;
 } HeapChunk;
 
 // the heap
 typedef struct {
-    void* start_at;
-    void* curr;
+    uintptr_t* start_at;
+    uintptr_t* curr;
 
     bool initialized;
     size_t max_cap;

@@ -17,7 +17,7 @@
 
 const int STACK_FRAME_PTRDIFF = sizeof(uintptr_t);
 
-extern int _heap_indexOfChunk(void* target, int startIndex, int endIndex);
+extern int _heap_indexOfChunk(uintptr_t* target, int startIndex, int endIndex);
 
 // todo: sortedList flexible capacity
 // add gc.reserveRef(ref)
@@ -170,11 +170,11 @@ void SortedList__uintpt_removeAt(SortedList__uintpt* ls, int index) {
 
 typedef struct  {
     void* childrens; // todo: typeof? SortedList__treeNode
-    void* start;
+    uintptr_t* start;
     int size;
 } gcRefTreeNode;
 
-const gcRefTreeNode _empty_refNode = {.size = 9999999, .start = NULL};
+const gcRefTreeNode _empty_refNode = {.size = 9999999, .start = (uintptr_t*)NULL};
 
 /*________ SortedList__treeNode */
 
@@ -273,14 +273,14 @@ typedef struct {
 } GC;
 
 
-gcRefTreeNode* gcRefTreeNode_init(void* start, int size) {
+gcRefTreeNode* gcRefTreeNode_init(uintptr_t* start, int size) {
     gcRefTreeNode* node = (gcRefTreeNode*)malloc(sizeof(gcRefTreeNode));
     node->childrens = (void*) SortedList__treeNode_init();
     node->size = size;
     node->start = start;
 }
 
-int gcRefTreeNode_addChild(gcRefTreeNode* root, void* child_start, int child_size) {
+int gcRefTreeNode_addChild(gcRefTreeNode* root, uintptr_t* child_start, int child_size) {
     SortedList__treeNode* list = (SortedList__treeNode*)(root->childrens);
     
     gcRefTreeNode node = {
@@ -304,11 +304,14 @@ gcRefTreeNode* gcRefTreeNode_getChild(gcRefTreeNode* root, int index) {
     return &(list->array[index]);
 }
 
-int treeNode_minIndex(SortedList__treeNode* list, void* target) {
+int treeNode_minIndex(SortedList__treeNode* list, uintptr_t* target) {
     int start = 0;
     int end = list->index;
     int prev = -1;
     int mid = (start + end) / 2;
+
+    // чекнуть входил ли элемент в выделенное пространство
+
     while(start < end) {
 
         mid = (start + end)/2;
@@ -325,12 +328,38 @@ int treeNode_minIndex(SortedList__treeNode* list, void* target) {
         }
 
         if (prev == mid) {
-            //printf("same=%i\n", mid);
+            
+            // check start to mid
+            if (start > 0) {
+                start--;
+            }
 
+            void* scalp_tg = (void*)target;
+
+            /*
+            // ПРОБЕГАЕМ ПО ДИАПАЗОНУ АДРЕСОВ
+            // TODO: chunk metafield {last_addr} чтобы определять диапазон адресов
+            while(start <= mid) {
+                
+
+                while()
+
+                void* st = list->array[start].start;
+                void* en = st + 8;
+
+                printf("____________[window] %p --- %p . tar=%p \n", st, en, scalp_tg);
+                if (st > scalp_tg && scalp_tg < en) {
+                    return start;
+                }
+
+                start++;
+            }
+            */
+            
             if (list->array[mid + 1].start == target) {
                 return mid +1;
             }
-            else  return mid;
+            else return 0;
         }
         else {
             prev = mid;
@@ -340,7 +369,7 @@ int treeNode_minIndex(SortedList__treeNode* list, void* target) {
     }
 }
 
-gcRefTreeNode* gcRefTreeNode_findNode(gcRefTreeNode* root, void* target) {
+gcRefTreeNode* gcRefTreeNode_findNode(gcRefTreeNode* root, uintptr_t* target) {
     // todo: maybe return heapChunk
     SortedList__treeNode* list = (SortedList__treeNode*)root->childrens;
 
@@ -365,7 +394,7 @@ gcRefTreeNode* gcRefTreeNode_findNode(gcRefTreeNode* root, void* target) {
     }
 }
 
-gcRefTreeNode* gcRefTreeNode_findNodeFromTree(gcHeapRefTree* tree, void* target) {
+gcRefTreeNode* gcRefTreeNode_findNodeFromTree(gcHeapRefTree* tree, uintptr_t* target) {
     // todo: maybe return heapChunk
     SortedList__treeNode* list = (SortedList__treeNode*)tree->rootList;
 
@@ -373,7 +402,7 @@ gcRefTreeNode* gcRefTreeNode_findNodeFromTree(gcHeapRefTree* tree, void* target)
 
     int bestIndex = treeNode_minIndex(list, target);
 
-    //printf("___gcRefTreeNode_findNodeFromTree bestMin=%i target=%p \n", bestIndex, target);
+    printf("___gcRefTreeNode_findNodeFromTree bestMin=%i target=%p \n", bestIndex, target);
 
     //dump_chunks();
 
@@ -418,19 +447,9 @@ void* _rsp;
 void* _ebp;
 
 
-bool stack_anyRef(void* heapAddr) {
-    // sliding window from rsp to ebp
-    // check (*[window]) == heapAddr 
-}
-
-
 void gc_mark() {
     // mark current rootList
 }
-
-
-
-
 
 
 
@@ -441,38 +460,41 @@ int heapTree_pullChildrens(Mheap* heap, gcRefTreeNode* node) {
     SortedList__treeNode* ls = (SortedList__treeNode*)node->childrens;
     SortedList__treeNode_clean(ls); 
 
-    void* end = node->start + node->size;
+    int cursor = node->size;
+
+    //uintptr_t* end = (uintptr_t*)((*(node->start)) + node->size);
     //printf("----END=%p END+1=%p", end, (end+1));
 
     if (node->size < 8) return;
 
-    void* ptr = node->start+0;
+    void* ptr = (void*)(node->start);
 
-        while(ptr < end) {
-            // FIX: void* to uintptr_t для того чтобы можно было преобразовать в тип
-            printf("____heapTree_pullChildrens ptr=%p, current=%p, end=%p &=%p\n", node->start, ptr, end, ((HeapChunk*)(ptr))->start_at);
+    while(cursor % 8 == 0 && cursor > 0) {
+        
+        int findIndex = _heap_indexOfChunk(*(uintptr_t*)ptr, 0, heap->alloced_index);
 
-            int findIndex = _heap_indexOfChunk(ptr, 0, heap->alloced_index);
+        if (findIndex != -1) {
 
-            if (findIndex != -1) {
+            printf("___ref: %p index=%i ref=%p\n", ptr, findIndex, heap->alloced_chunks[findIndex].start_at);
 
-                //printf("___ref: %p index=%i\n", ptr, findIndex);
+            // FIX: to refs
+            gcRefTreeNode* crtNode = gcRefTreeNode_init(
+                heap->alloced_chunks[findIndex].start_at,
+                heap->alloced_chunks[findIndex].size);
 
-                // FIX: to refs
-                gcRefTreeNode* crtNode = gcRefTreeNode_init(
-                    heap->alloced_chunks[findIndex].start_at,
-                    heap->alloced_chunks[findIndex].size);
-
-                // FIX: to refs
-                SortedList__treeNode_add(ls, *crtNode);
-            }
-            ptr += STACK_FRAME_PTRDIFF;
+            // FIX: to refs
+            SortedList__treeNode_add(ls, *crtNode);
         }
+
+        //printf("----CURSOR REF=%p  REF2=%p REF3=%p\n", ptr, *(uintptr_t*)ptr, &(*ptr));
+        ptr += 8;
+        cursor -= 8;
+    }
 
     return ls->count;
 }
 
-void heapTree_makeNode(Mheap* heap, gcHeapRefTree* target_tree, size_t size, void* start) {
+void heapTree_makeNode(Mheap* heap, gcHeapRefTree* target_tree, size_t size, uintptr_t* start) {
     
     gcRefTreeNode* find = gcRefTreeNode_findNodeFromTree(target_tree, start);
     
@@ -492,6 +514,8 @@ void heapTree_makeNode(Mheap* heap, gcHeapRefTree* target_tree, size_t size, voi
         gcRefTreeNode* node = gcRefTreeNode_init(start, size);
         SortedList__treeNode_add(target_tree->rootList, *node);
         heapTree_pullChildrens(heap, node);
+        SortedList__treeNode* nodels = (SortedList__treeNode*)node->childrens; 
+        printf("---------------------childrens=%p \n", nodels->array[0].start);
     }
     // add childrens
     else {
@@ -688,6 +712,7 @@ void gc_updateFuncFrame() {
 typedef struct {
     int f;
     int* pt1;
+    int* pt2;
 } Foo;
 
 typedef struct {
@@ -706,23 +731,61 @@ int bar() {
     void* f5;
     //double* ptr = (double*)_malloc(sizeof(double));
     Foo* ptr2 = (Foo*)_malloc(sizeof(Foo));
-    ptr2->pt1 = _malloc(4);
+    ptr2->pt2 = _malloc(4);
 
     //Bar* ptr3 = (Bar*)_malloc(sizeof(Bar));
 
 
-    int* t1 = _malloc(4);
+    double* t1 = _malloc(8);
 
-    printf("------------------ &=%p \n", &(t1));
-    printf("------------------ p=%p \n", (t1));
+    ptr2->pt1 = _malloc(4);
+
+    Bar* bar = _malloc(sizeof(Bar));
+    bar->pt1 = _malloc(4);
+    bar->pt3 = _malloc(4);
+
 
     GC_SET_FRAME;
     return 5;
 }
 
+int main3() { 
 
+    int* p2 = (int*)_malloc(sizeof(int));
+    Foo* p4 = (Foo*)_malloc(sizeof(Foo));
+    p4->pt1 = _malloc(sizeof(int));
+    printf("void*=%p, val=%p \n", p4, *(uintptr_t*)(p4));
+    p4+=8;
+    printf("+8 void*=%p, val=%p \n", p4, *(uintptr_t*)(p4));
+    p4+=8;
+    printf("+8 void*=%p, val=%p \n", p4, *(uintptr_t*)(p4));
+    p4+=16;
+    printf("+16 void*=%p, val=%p \n", p4, *(uintptr_t*)(p4));
+    int* p5 = (int*)_malloc(sizeof(int));
+
+    //Foo* p1 = (Foo*)_malloc(sizeof(Foo*));
+    //p1->pt1 = _malloc(4);
+
+    //int* p2 = (int*)_malloc(sizeof(int));
+
+    dump_chunks();
+
+
+    //printf("void*=%p, val=%p \n", p1, *(uintptr_t*)(p1));
+    //printf("void*=%p, val=%p \n", p1->pt1, *(uintptr_t*)(p1->pt1));
+
+    //heap_shift_left(1, 1);
+
+    // 1 2 1 2(0)
+
+    //printf("res=%i \n", _heap_indexOfChunk((void*)p1, 0, heap.alloced_index));
+
+    return 0;
+}
 
 int main() {
+
+
 
     gc_init(&main_gc);
 
