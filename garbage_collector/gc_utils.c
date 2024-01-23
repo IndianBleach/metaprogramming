@@ -447,6 +447,16 @@ void* _rsp;
 void* _ebp;
 
 
+/*
+    TODO_MAIN:   
+    - маркнуть активные обьекты
+    - определить обьекты для освобождения 
+    - перенести обьекты в след поколение
+    - когда строить кучу
+    - перенести построение кучи в фон
+    - где вызывать методы кучи
+*/
+
 void gc_mark() {
     // mark current rootList
 }
@@ -475,7 +485,7 @@ int heapTree_pullChildrens(Mheap* heap, gcRefTreeNode* node) {
 
         if (findIndex != -1) {
 
-            printf("___ref: %p index=%i ref=%p\n", ptr, findIndex, heap->alloced_chunks[findIndex].start_at);
+            //printf("___ref: %p index=%i ref=%p\n", ptr, findIndex, heap->alloced_chunks[findIndex].start_at);
 
             // FIX: to refs
             gcRefTreeNode* crtNode = gcRefTreeNode_init(
@@ -515,7 +525,7 @@ void heapTree_makeNode(Mheap* heap, gcHeapRefTree* target_tree, size_t size, uin
         SortedList__treeNode_add(target_tree->rootList, *node);
         heapTree_pullChildrens(heap, node);
         SortedList__treeNode* nodels = (SortedList__treeNode*)node->childrens; 
-        printf("---------------------childrens=%p \n", nodels->array[0].start);
+        //printf("---------------------childrens=%p \n", nodels->array[0].start);
     }
     // add childrens
     else {
