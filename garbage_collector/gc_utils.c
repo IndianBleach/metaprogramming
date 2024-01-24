@@ -452,8 +452,20 @@ void* _ebp;
 
 /*
     TODO_MAIN:   
-    - маркнуть активные обьекты
-    - определить обьекты для освобождения 
+    - gc.nextGen()
+    - gc.freeNode()
+    - gc.getHeapAllocStat()
+    - gc.finallize
+    - обновление фрейма
+    ---------------------
+    - gc. вынести в фон
+    - проверить на тестах
+    - добавить мутекс?
+    - рефакторить
+    --------------------
+    - почистить код
+    - замерить перфоманс
+    -------------------
     - перенести обьекты в след поколение
     - когда строить кучу
     - перенести построение кучи в фон
@@ -574,10 +586,6 @@ void heapTree_build(Mheap* heap, gcHeapRefTree* heap_tree_gen) {
             - конечный адрес в хипе для сборки (если на стеке есть ссылка то безсполезно) как не собрать лишнего?
             - chunk.gc_status (parsed, noparsed)
 
-        gc.scanFrame()
-            1. пройтись по списку адресов
-            2. пометить эти ноды как .is_available
-
         gen0 tree (неотсканированное на основе кучи) построено в результате периодических вызовов
         gen1 tree (после 1 скана)
         gen2 tree (после 2 скана)
@@ -593,16 +601,82 @@ void heapTree_build(Mheap* heap, gcHeapRefTree* heap_tree_gen) {
 
     */
 
-void gcMarker_run() {
+enum GC_NODE_STATUS {
+    CAN_FREED = -1,
+    PARSE_DEEP = 2,
+    NOT_INITIALIZED = 0,
+    REF_AVAILABLE = 1,
+    PARSE_NEXT = 3
+};
+
+enum GC_NODE_STATUS gcMarker_parseNode(gcRefTreeNode* root) {
+    SortedList__treeNode* list = (SortedList__treeNode*)(root->childrens);
+    //printf("gcMarker_parseNode: (PARSE DEEP) %p \n", root->start);
+    if (list->index == 0) return PARSE_NEXT;
+
+    bool any_available = false;
+    for(int i = 0; i < list->index; i++) {
+        if (list->array[i].meta_isAvailable == true) {
+            // to next gen
+            return REF_AVAILABLE;
+        }
+        else {
+
+            enum GC_NODE_STATUS st = gcMarker_parseNode(&(list->array[i]));
+            
+            if (st == PARSE_NEXT) {
+                i++;
+            }
+            else if (st == REF_AVAILABLE) {
+                // to next gen
+                return REF_AVAILABLE;
+            }
+        }
+    }
+
+    return PARSE_NEXT;
+}
+
+void gcMarker_parseTree(gcHeapRefTree* gen_tree) {
     /*
         бежит по маркнутому дереву и определяет обьекты
             либо в след поколения
             либо в очередь на очистку 
     */
+    gcdump_tree();
+    SortedList__treeNode* freeList = SortedList__treeNode_init();
+
+    for(int i = 0; i < gen_tree->rootList->index;) {
+        //printf("gcMarker_parseTree: (NODE AVAILABLE=%i, ref=%p) %i \n", gen_tree->rootList->array[i].size);
+        if (gen_tree->rootList->array[i].meta_isAvailable) {
+            printf("gcMarker_parseTree: next gen %p \n", gen_tree->rootList->array[i].start);
+            // to next gen
+            i++;
+        }
+        else {
+            //printf("gcMarker_parseTree: (PARSE DEEP) %i \n", gen_tree->rootList->array[i].size);
+            // прошлис по всей ноде, если stat == parseNext, можно фришить
+            enum GC_NODE_STATUS stat = gcMarker_parseNode(&(gen_tree->rootList->array[i]));
+            if (stat == REF_AVAILABLE) {
+                printf("gcMarker_parseTree: next gen (DEEP) %p \n", gen_tree->rootList->array[i].start);
+                i++;
+                // to next gen
+            }
+            else if (stat == PARSE_NEXT) {
+                SortedList__treeNode_add(freeList, gen_tree->rootList->array[i]);
+                // freed
+                i++;
+                
+            }
+        }
+    }
+
+    printf("_______gcMarker_parseTree: FREED:\n");
+    SortedList__treeNode_dump(freeList);
 }
 
 
-void gcMarker_scanFrame(void* start, void* end) {
+void gcMarker_scanFrame(gcHeapRefTree* gen_tree, void* start, void* end) {
 
     /*
         определяет используемые (достижимые ) обьекты в данный момент на стеке
@@ -616,7 +690,7 @@ void gcMarker_scanFrame(void* start, void* end) {
         if (((uintptr_t)start) % 8 == 0) {
             void* pt = (void*)start;
             //printf("CURSOR=%p REF=%p\n", start, *(uintptr_t*)pt);
-            gcRefTreeNode* find = gcRefTreeNode_findNodeFromTree(main_gc.gen0_tree, *(uintptr_t*)pt);
+            gcRefTreeNode* find = gcRefTreeNode_findNodeFromTree(gen_tree, *(uintptr_t*)pt);
             if (find != NULL) {
                 printf("FINDED=%p \n", find->start);
                 find->meta_isAvailable = true;
@@ -630,11 +704,12 @@ void gcMarker_scanFrame(void* start, void* end) {
 
 
 
+
 void gc_finallize() {
     
-    //
-    
-    // mark 1gen
+    heapTree_build(&heap, main_gc.gen0_tree);
+    gcMarker_scanFrame(main_gc.gen0_tree, _rsp, _ebp);
+    gcMarker_parseTree(main_gc.gen0_tree);
     
     // join_thr?
 
@@ -643,12 +718,6 @@ void gc_finallize() {
     // gen1 80%
     // gen2 90%
 
-    /*
-        for root in rootList
-            if (root.isAvailable) toNextGen(node)
-            else freeNode(root)
-
-    */
 
    // join_thr?
 }
@@ -751,63 +820,19 @@ typedef struct {
 
 Foo* bar() {
     
-    double f1 = 10;
-    double f2 = 10;
-    double f3 = 10;
-    double f4 = 10;
-    double f5 = 10;
-    //double* ptr = (double*)_malloc(sizeof(double));
     Foo* ptr2 = (Foo*)_malloc(sizeof(Foo));
     ptr2->pt2 = _malloc(4);
     ptr2->pt1 = _malloc(4);
 
-    //Bar* ptr3 = (Bar*)_malloc(sizeof(Bar));
+    int* t1 = _malloc(4);
 
-    double* t1 = _malloc(8);
-
-    //Bar* bar = _malloc(sizeof(Bar));
-    //bar->pt1 = _malloc(4);
-    //bar->pt3 = _malloc(sizeof(Foo));
-    //bar->pt3->pt1 = _malloc(4);
-
-    // FIX: update func frame
+    Bar* br = (Bar*)_malloc(sizeof(Bar));
+    br->pt1 = _malloc(sizeof(int));
+    br->pt2 = _malloc(sizeof(int));
 
     return ptr2;
 }
 
-int main3() { 
-
-    int* p2 = (int*)_malloc(sizeof(int));
-    Foo* p4 = (Foo*)_malloc(sizeof(Foo));
-    p4->pt1 = _malloc(sizeof(int));
-    printf("void*=%p, val=%p \n", p4, *(uintptr_t*)(p4));
-    p4+=8;
-    printf("+8 void*=%p, val=%p \n", p4, *(uintptr_t*)(p4));
-    p4+=8;
-    printf("+8 void*=%p, val=%p \n", p4, *(uintptr_t*)(p4));
-    p4+=16;
-    printf("+16 void*=%p, val=%p \n", p4, *(uintptr_t*)(p4));
-    int* p5 = (int*)_malloc(sizeof(int));
-
-    //Foo* p1 = (Foo*)_malloc(sizeof(Foo*));
-    //p1->pt1 = _malloc(4);
-
-    //int* p2 = (int*)_malloc(sizeof(int));
-
-    dump_chunks();
-
-
-    //printf("void*=%p, val=%p \n", p1, *(uintptr_t*)(p1));
-    //printf("void*=%p, val=%p \n", p1->pt1, *(uintptr_t*)(p1->pt1));
-
-    //heap_shift_left(1, 1);
-
-    // 1 2 1 2(0)
-
-    //printf("res=%i \n", _heap_indexOfChunk((void*)p1, 0, heap.alloced_index));
-
-    return 0;
-}
 
 int main() {
 
@@ -820,18 +845,16 @@ int main() {
     gc_init(&main_gc);
 
     double* ptr = _malloc(sizeof(double));
-    int* ptr2 = _malloc(sizeof(int));
+    //int* ptr2 = _malloc(sizeof(int));
 
     //GC_SET_FRAME;
 
-    Foo* ptr3 = bar();
+    Foo * ptr3 = bar();
+
 
     //GC_SET_FRAME;
 
-    dump_chunks();
-    heapTree_build(&heap, main_gc.gen0_tree);
-    gcMarker_scanFrame(_rsp, _ebp);
-
+    gc_finallize();
 
     //pthread_t secId;
     //gc_start(&secId);
