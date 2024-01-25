@@ -15,7 +15,7 @@ Mheap heap;
 void MHeapInit() {
     uintptr_t* start = (uintptr_t*)HeapCreate(HEAP_NO_SERIALIZE, HEAP_INIT_CAP, HEAP_MAX_CAP);
     printf("start=%p\n", start);
-    printf("start=%p\n", *start);
+    //printf("start=%p\n", *start);
     heap.max_cap = HEAP_MAX_CAP;
     heap.allocated_cap = 0; 
     heap.start_at = start;

@@ -81,28 +81,6 @@ extern int _heap_indexOfChunk(uintptr_t* target, int startIndex, int endIndex);
         очистить и удалить ноду из дерева (и удалить потомков)? это может быть не root обьект
 
 */
-/*
-void gc_toNextGen(gcRefTreeNode* root) {
-    
-    int bestMin = treeNode_minIndex(main_gc.gen1, root->start);
-    // todo: size&ptr good node identifier?
-    // already exists in gen1
-    // todo: add gen0
-    // todo: remove from prev gen
-    if (main_gc.gen1->array[bestMin].size == root->size &&
-        main_gc.gen1->array[bestMin].start == root->start) {
-
-            int bestMin2 = treeNode_minIndex(main_gc.gen2, root->start);
-            if (main_gc.gen2->array[bestMin].size != root->size ||
-                main_gc.gen2->array[bestMin].start != root->start) {
-                SortedList__treeNode_add(main_gc.gen2, *root);
-            }
-    } 
-    else {
-        SortedList__treeNode_add(main_gc.gen1, *root);
-    }
-}
-*/
 
 
 /*________ SortedList__uintpt */
@@ -221,7 +199,7 @@ void SortedList__treeNode_add(SortedList__treeNode* ls, gcRefTreeNode elem) {
 }
 
 void SortedList__treeNode_dump(SortedList__treeNode* ls) {
-    printf("dump list [");
+    printf("dump list (%i) [", ls->index);
     for(int i =0; i < ls->index; i++) {
         printf(" %i(%i),", ls->array[i].size, ls->array[i].meta_isAvailable);
     }
@@ -231,9 +209,11 @@ void SortedList__treeNode_dump(SortedList__treeNode* ls) {
 void SortedList__treeNode_removeAt(SortedList__treeNode* ls, int index) {
     
     if (ls->count == 0) {
+        ls->index = 0;
         return;
     }
-    
+
+
     ls->array[index] = _empty_refNode;
     ls->last_del_index = index;
     ls->count--;
@@ -243,6 +223,11 @@ void SortedList__treeNode_removeAt(SortedList__treeNode* ls, int index) {
 }
 
 void SortedList__treeNode_clean(SortedList__treeNode* list) {
+    
+    for(int i = list->index-1; i > 0; i--) {
+        SortedList__treeNode_removeAt(list, i);
+    }
+
     list->count = 0;
     list->index = 0;
     list->last_del_index = -1;
@@ -259,7 +244,7 @@ gcHeapRefTree* gcHeapRefTree_init() {
     gcHeapRefTree* tree = (gcHeapRefTree*)malloc(sizeof(gcHeapRefTree));
     tree->rootList = SortedList__treeNode_init(); 
 
-    printf("gcHeapRefTree_init\n");
+    //printf("gcHeapRefTree_init\n");
 
     return tree;
 }
@@ -308,6 +293,14 @@ gcRefTreeNode* gcRefTreeNode_getChild(gcRefTreeNode* root, int index) {
 }
 
 int treeNode_minIndex(SortedList__treeNode* list, uintptr_t* target) {
+    
+    if (list->index == 0) {
+        return -1;
+    }
+    if (list->index == 1) {
+        return 0;
+    }
+
     int start = 0;
     int end = list->index;
     int prev = -1;
@@ -336,28 +329,6 @@ int treeNode_minIndex(SortedList__treeNode* list, uintptr_t* target) {
             if (start > 0) {
                 start--;
             }
-
-            void* scalp_tg = (void*)target;
-
-            /*
-            // ПРОБЕГАЕМ ПО ДИАПАЗОНУ АДРЕСОВ
-            // TODO: chunk metafield {last_addr} чтобы определять диапазон адресов
-            while(start <= mid) {
-                
-
-                while()
-
-                void* st = list->array[start].start;
-                void* en = st + 8;
-
-                printf("____________[window] %p --- %p . tar=%p \n", st, en, scalp_tg);
-                if (st > scalp_tg && scalp_tg < en) {
-                    return start;
-                }
-
-                start++;
-            }
-            */
             
             if (list->array[mid + 1].start == target) {
                 return mid +1;
@@ -367,8 +338,6 @@ int treeNode_minIndex(SortedList__treeNode* list, uintptr_t* target) {
         else {
             prev = mid;
         }
-
-        //printf("mid=%i\n", mid);
     }
 }
 
@@ -383,7 +352,6 @@ gcRefTreeNode* gcRefTreeNode_findNode(gcRefTreeNode* root, uintptr_t* target) {
     }
     else {
         while (list->array[bestIndex].start < target) {
-            //printf("index=%i\n", bestIndex);
             gcRefTreeNode* deep = gcRefTreeNode_findNode(&(list->array[bestIndex]), target);
             
             if (deep != NULL) {
@@ -399,23 +367,21 @@ gcRefTreeNode* gcRefTreeNode_findNode(gcRefTreeNode* root, uintptr_t* target) {
 
 gcRefTreeNode* gcRefTreeNode_findNodeFromTree(gcHeapRefTree* tree, uintptr_t* target) {
     // todo: maybe return heapChunk
-    SortedList__treeNode* list = (SortedList__treeNode*)tree->rootList;
 
-    //printf("___gcRefTreeNode_findNodeFromTree IN\n");
+    if (tree->rootList->index == 0) return NULL;
+
+    SortedList__treeNode* list = tree->rootList;
 
     int bestIndex = treeNode_minIndex(list, target);
 
-    //printf("___gcRefTreeNode_findNodeFromTree bestMin=%i target=%p \n", bestIndex, target);
-
-    //dump_chunks();
+    if (bestIndex == -1) return NULL;
 
     if (list->array[bestIndex].start == target) {
         
         return &(list->array[bestIndex]);
     }
     else {
-        while (list->array[bestIndex].start < target) {
-            //printf("index=%i\n", bestIndex);
+        while (list->index > bestIndex && list->array[bestIndex].start < target) {
             gcRefTreeNode* deep = gcRefTreeNode_findNode(&(list->array[bestIndex]), target);
             
             if (deep != NULL) {
@@ -441,7 +407,22 @@ void gcRefTreeNode_makeChildrens( gcRefTreeNode* node, SortedList__treeNode* chi
     }
 }
 
+void SortedList__treeNode_deepClean(SortedList__treeNode* list) {
+    
+    for(int i = 0; i < list->index; i++) {
+        SortedList__treeNode* ls = (SortedList__treeNode*)list->array[i].childrens;
+        SortedList__treeNode_deepClean(ls);
+    }
 
+    SortedList__treeNode_clean(list);
+}
+
+void SortedList__treeNode_removeNodeAt(SortedList__treeNode* list, int index) {
+    if (index >= 0 && index < list->index) {
+        SortedList__treeNode_deepClean( (SortedList__treeNode*)(list->array) );
+        SortedList__treeNode_removeAt(list, index);
+    }
+}
 
 GC main_gc;
 extern Mheap heap;
@@ -452,11 +433,19 @@ void* _ebp;
 
 /*
     TODO_MAIN:   
-    - gc.nextGen()
+    - обновить поколения ПОСЛЕ обработки gc ЛИБО ПЕРЕСТАВИТЬ МЕСТАМИ gen2->gen1->gen0
+    - добавить _free();
+
+
+    - gc.nextGen() +
     - gc.freeNode()
     - gc.getHeapAllocStat()
     - gc.finallize
     - обновление фрейма
+    - обновить зависимости и ссылки
+    - если кто-то ссылается на поле другой ноды
+    - убрать приписку gc
+    - обработка NULL
     ---------------------
     - gc. вынести в фон
     - проверить на тестах
@@ -472,6 +461,31 @@ void* _ebp;
     - где вызывать методы кучи
     - clean comments/prints
 */
+
+void gc_toNextGen(gcRefTreeNode* root) {
+    
+    /*
+        Отправляет ноду в след поколение
+    */
+
+    printf("__gc_toNextGen: node=%p\n", root->start);
+    int bestMin = treeNode_minIndex(main_gc.gen1_tree->rootList, root->start);
+
+    // already in gen1
+    if (main_gc.gen1_tree->rootList->array[bestMin].size == root->size &&
+        main_gc.gen1_tree->rootList->array[bestMin].start == root->start) {
+
+        int bestMin2 = treeNode_minIndex(main_gc.gen2_tree->rootList, root->start);
+
+        if (main_gc.gen2_tree->rootList->array[bestMin].size != root->size ||
+            main_gc.gen2_tree->rootList->array[bestMin].start != root->start) {
+
+            SortedList__treeNode_add(main_gc.gen2_tree->rootList, *root);
+        }
+    } 
+    else  SortedList__treeNode_add(main_gc.gen1_tree->rootList, *root);
+}
+
 
 
 int heapTree_pullChildrens(Mheap* heap, gcRefTreeNode* node) {
@@ -518,10 +532,10 @@ void heapTree_makeNode(Mheap* heap, gcHeapRefTree* target_tree, size_t size, uin
     gcRefTreeNode* find = gcRefTreeNode_findNodeFromTree(target_tree, start);
     
     if (find != NULL) {
-        //printf("heapTree_makeNode: start=%p find=%p \n", start, find->start);
+        printf("heapTree_makeNode: start=%p find=%p \n", start, find->start);
     }
     else {
-        //printf("heapTree_makeNode: start=%p find=NULL \n", start);
+        printf("heapTree_makeNode: start=%p find=NULL \n", start);
     }
 
     //gcdump_tree();
@@ -531,6 +545,7 @@ void heapTree_makeNode(Mheap* heap, gcHeapRefTree* target_tree, size_t size, uin
         //printf("heapTree_makeNode: add root \n");
         // TODO: memory leek. сделать листы через ссылки
         gcRefTreeNode* node = gcRefTreeNode_init(start, size);
+        //printf("ADD: %p\n",start);
         SortedList__treeNode_add(target_tree->rootList, *node);
         heapTree_pullChildrens(heap, node);
         SortedList__treeNode* nodels = (SortedList__treeNode*)node->childrens; 
@@ -545,12 +560,12 @@ void heapTree_makeNode(Mheap* heap, gcHeapRefTree* target_tree, size_t size, uin
     }
 }
 
-void gcdump_tree() {
+void gcdump_tree(gcHeapRefTree* tree) {
     //ap_array();
-    printf("gen0_tree: [");
-    for(int i = 0; i < main_gc.gen0_tree->rootList->index; i++) {
-        SortedList__treeNode* ls = (SortedList__treeNode*)(main_gc.gen0_tree->rootList->array[i].childrens);
-        printf("%p(%i)[%i], ", main_gc.gen0_tree->rootList->array[i].start, main_gc.gen0_tree->rootList->array[i].size, ls->count);
+    printf("gen_tree: [");
+    for(int i = 0; i < tree->rootList->index; i++) {
+        //SortedList__treeNode* ls = (SortedList__treeNode*)(tree->rootList->array[i].childrens);
+        printf("%p(%i)[%i], ", tree->rootList->array[i].start, tree->rootList->array[i].size, 0);
     }
     printf("]\n");
 }
@@ -563,6 +578,9 @@ void heapTree_build(Mheap* heap, gcHeapRefTree* heap_tree_gen) {
 
     //printf("___heapTree_build index=%i\n", heap->alloced_index);
     //dump_heap_array();
+
+    printf("heapTree_build: \n");
+    SortedList__treeNode_dump(heap_tree_gen->rootList);
 
     for(int i = 0; i < heap->alloced_index; i++) {
         //printf("== %p \n", heap->alloced_chunks[i].start_at);
@@ -609,10 +627,28 @@ enum GC_NODE_STATUS {
     PARSE_NEXT = 3
 };
 
+// TODO: убрать некоторые функи к gcnode
+
+void gc_freeNode(gcRefTreeNode* root) {
+    /*
+        удалить ноду из дерева
+        пройтись и зафришить 
+    */
+
+    SortedList__treeNode* list = (SortedList__treeNode*)root->childrens;
+    printf("____gc_freeNode: ptr=%p, count=%i \n", root->start, list->index);
+
+    for(int i = 0; i < list->index; i++) {
+        gc_freeNode(&(list->array[i]));
+    }
+}
+
 enum GC_NODE_STATUS gcMarker_parseNode(gcRefTreeNode* root) {
     SortedList__treeNode* list = (SortedList__treeNode*)(root->childrens);
-    //printf("gcMarker_parseNode: (PARSE DEEP) %p \n", root->start);
+    //printf("gcMarker_parseNode: aval=%i  %p \n", root->meta_isAvailable, root->start);
     if (list->index == 0) return PARSE_NEXT;
+
+    if (root->meta_isAvailable) return REF_AVAILABLE;
 
     bool any_available = false;
     for(int i = 0; i < list->index; i++) {
@@ -637,42 +673,56 @@ enum GC_NODE_STATUS gcMarker_parseNode(gcRefTreeNode* root) {
     return PARSE_NEXT;
 }
 
+void gcTree_clean(gcHeapRefTree* tree, int end) {
+    
+    for(int i = 0; i < end; i++) {
+        SortedList__treeNode_removeNodeAt(tree->rootList, i);
+    }
+
+    //printf("gcTree_clean: %i\n", tree->rootList->index);
+    //SortedList__treeNode_dump(tree->rootList);
+}
+
 void gcMarker_parseTree(gcHeapRefTree* gen_tree) {
     /*
         бежит по маркнутому дереву и определяет обьекты
             либо в след поколения
             либо в очередь на очистку 
     */
-    gcdump_tree();
-    SortedList__treeNode* freeList = SortedList__treeNode_init();
 
-    for(int i = 0; i < gen_tree->rootList->index;) {
-        //printf("gcMarker_parseTree: (NODE AVAILABLE=%i, ref=%p) %i \n", gen_tree->rootList->array[i].size);
+    // todo: list<int>
+
+    SortedList__treeNode* free_queue = SortedList__treeNode_init();
+
+    int i = 0;
+    for(; i < gen_tree->rootList->index; i++) {
+
+        //printf("ROOT_NODE: %p  (%i) \n", gen_tree->rootList->array[i].start, gen_tree->rootList->array[i].meta_isAvailable);
+
         if (gen_tree->rootList->array[i].meta_isAvailable) {
-            printf("gcMarker_parseTree: next gen %p \n", gen_tree->rootList->array[i].start);
-            // to next gen
-            i++;
+            //printf("gcMarker_parseTree: next gen (ROOT) %p \n", gen_tree->rootList->array[i].start);
+            gc_toNextGen(&(gen_tree->rootList->array[i]));
+            //SortedList__treeNode_removeNodeAt(gen_tree->rootList, i);
+            SortedList__treeNode_add(free_queue, gen_tree->rootList->array[i]);
         }
         else {
             //printf("gcMarker_parseTree: (PARSE DEEP) %i \n", gen_tree->rootList->array[i].size);
             // прошлис по всей ноде, если stat == parseNext, можно фришить
             enum GC_NODE_STATUS stat = gcMarker_parseNode(&(gen_tree->rootList->array[i]));
             if (stat == REF_AVAILABLE) {
-                printf("gcMarker_parseTree: next gen (DEEP) %p \n", gen_tree->rootList->array[i].start);
-                i++;
-                // to next gen
+               
+                gc_toNextGen(&(gen_tree->rootList->array[i]));
+                //SortedList__treeNode_removeNodeAt(gen_tree->rootList, i);
+                //SortedList__treeNode_add(free_queue, gen_tree->rootList->array[i]);
             }
             else if (stat == PARSE_NEXT) {
-                SortedList__treeNode_add(freeList, gen_tree->rootList->array[i]);
                 // freed
-                i++;
-                
+                gc_freeNode(&(gen_tree->rootList->array[i]));
             }
         }
     }
 
-    printf("_______gcMarker_parseTree: FREED:\n");
-    SortedList__treeNode_dump(freeList);
+    gcTree_clean(gen_tree, gen_tree->rootList->index);
 }
 
 
@@ -689,6 +739,7 @@ void gcMarker_scanFrame(gcHeapRefTree* gen_tree, void* start, void* end) {
 
         if (((uintptr_t)start) % 8 == 0) {
             void* pt = (void*)start;
+            //printf("___________________ref=%p\n", *(uintptr_t*)pt);
             //printf("CURSOR=%p REF=%p\n", start, *(uintptr_t*)pt);
             gcRefTreeNode* find = gcRefTreeNode_findNodeFromTree(gen_tree, *(uintptr_t*)pt);
             if (find != NULL) {
@@ -711,13 +762,18 @@ void gc_finallize() {
     gcMarker_scanFrame(main_gc.gen0_tree, _rsp, _ebp);
     gcMarker_parseTree(main_gc.gen0_tree);
     
+    //printf("DUMP GEN TREE: \n");
+    //SortedList__treeNode_dump(main_gc.gen1_tree->rootList);
+
+    //heapTree_build(&heap, main_gc.gen0_tree);
+    //gcMarker_scanFrame(main_gc.gen1_tree, _rsp, _ebp);
+    //gcMarker_parseTree(main_gc.gen1_tree);
     // join_thr?
 
     // cleanGen = heapAllocdProc()
     // gen0 65%
     // gen1 80%
     // gen2 90%
-
 
    // join_thr?
 }
@@ -855,11 +911,25 @@ int main() {
     //GC_SET_FRAME;
 
     gc_finallize();
-
+    //SortedList__treeNode_dump(main_gc.gen0_tree->rootList);
+    //SortedList__treeNode_dump(main_gc.gen1_tree->rootList);
+    //SortedList__treeNode_dump(main_gc.gen0_tree->rootList);
+    //SortedList__treeNode_dump(main_gc.gen2_tree->rootList);
+    printf("------------------\n");
     //pthread_t secId;
     //gc_start(&secId);
 
     sleep(1);
+
+    //bar();
+    SortedList__treeNode_dump(main_gc.gen0_tree->rootList);
+    SortedList__treeNode_dump(main_gc.gen1_tree->rootList);
+    SortedList__treeNode_dump(main_gc.gen2_tree->rootList);
+    printf("___________FINALLIIZE\n");
+    gc_finallize();
+    SortedList__treeNode_dump(main_gc.gen0_tree->rootList);
+    SortedList__treeNode_dump(main_gc.gen1_tree->rootList);
+    SortedList__treeNode_dump(main_gc.gen2_tree->rootList);
 
     //Bar* ptbar = bar();
 
