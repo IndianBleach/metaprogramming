@@ -3,8 +3,8 @@
 
 #define ALLOCED_CHUNKS_LEN 1024
 
-#define HEAP_INIT_CAP 1024 * 64
-#define HEAP_MAX_CAP 1024 * 86
+#define HEAP_INIT_CAP 1024
+#define HEAP_MAX_CAP 1024
 
 typedef struct  {
     size_t size;
@@ -22,6 +22,7 @@ typedef struct {
     size_t allocated_cap;
     HeapChunk alloced_chunks[ALLOCED_CHUNKS_LEN];
     int alloced_index;
+    int freed_now;
 } Mheap;
 
 void MHeapInit();

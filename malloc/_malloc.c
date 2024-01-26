@@ -78,6 +78,39 @@ int _heap_indexOfChunk(uintptr_t* target, int startIndex, int endIndex) {
     return -1;  
 }
 
+int _heap_indexOfChunkNoFreed(uintptr_t* target, int startIndex, int endIndex) {
+    
+    if (startIndex > endIndex) return -1;
+
+    int equal_flag = 0;
+
+    int mid =  (endIndex - startIndex) / 2;
+
+    while(startIndex <= endIndex) {
+        
+        mid =  (endIndex - startIndex) / 2 + startIndex;
+        
+        if (endIndex - startIndex == 1) {
+            mid = startIndex;
+        }
+
+        if (heap.alloced_chunks[mid].start_at == target && heap.alloced_chunks[mid].is_freed == false) {
+            return mid;
+        }
+        else if (heap.alloced_chunks[mid].start_at < target) {
+            startIndex = mid + 1;
+            if (mid == heap.alloced_index - 1) return -1;
+        }
+        else if (heap.alloced_chunks[mid].start_at > target) {
+            endIndex = mid - 1;
+            if (mid == 0) return -1;
+        }
+    }
+
+    return -1;  
+}
+
+
 // [+] поиск среди фришных - комбинация бинпоиск + проход
 int _indexOfMinFreed(size_t target, int startIndex, int endIndex) {
 
@@ -259,6 +292,7 @@ void* _malloc(size_t size) {
 
     if (freed_index != -1) {
         insert_at(freed_index, size);
+        heap.freed_now++;
         qsort(heap.alloced_chunks, heap.alloced_index, sizeof(HeapChunk), sort_chunk_compare);
         // insert_at
         // - reorder
@@ -288,6 +322,7 @@ void heap_merge_chunks(int targetStart, int end) {
     }
 
     heap_shift_left(targetStart+1, end - targetStart);
+    heap.freed_now--;
 }
 
 void heap_collect_free() {
@@ -319,11 +354,11 @@ void _free(void* addr) {
 
     int findIndex = _heap_indexOfChunk((uintptr_t*)addr, 0, heap.alloced_index);
 
-    heap.alloced_chunks[findIndex].is_freed = true;
-    heap.allocated_cap -= heap.alloced_chunks[findIndex].size;
-
-    //dump_chunks();
-    //*(uintptr_t*)addr = 0;
+    if (findIndex != -1 && heap.alloced_chunks[findIndex].is_freed == false) {
+        heap.alloced_chunks[findIndex].is_freed = true;
+        heap.allocated_cap -= heap.alloced_chunks[findIndex].size;
+        heap.freed_now++;
+    }
 }
 
 /* Free()
