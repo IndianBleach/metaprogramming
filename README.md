@@ -1,6 +1,6 @@
 ### todo
 - [x] `malloc`
-- `GC`
+- [x] `GC`
 - `lexer`
 - `parser`
 - `object memory frames (auto free)`
