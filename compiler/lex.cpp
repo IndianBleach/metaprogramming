@@ -15,6 +15,8 @@ enum cnst_TokenType {
     LIST_VALUES,
     LIST_VARS,
 
+    VAR_NAME,
+    LITERAL,
     TYPE,
     RESERVE_WORD,
     OPERAND,
@@ -50,10 +52,18 @@ class token_alphabet {
         const char OP_PDIV = '%';
         const char OP_DIV = '/';
 
+        // logic
+        const char* LOG_EQ = "==";
+        const char* LOG_AND = "&";
+        const char* LOG_OR = "|";
+        const char* LOG_DAND = "&&";
+        const char* LOG_DOR = "||";
+
         // symbols
         const char SMB_DOT = '.';
         const char SMB_END = ';';
         const char SMB_CMA = ',';
+        const char SMB_VAR = '=';
 
         // reserve words
         const char* RW_FOR = "for";
@@ -62,6 +72,7 @@ class token_alphabet {
         const char* RW_FUNC = "func";
         const char* RW_CLASS = "class";
         const char* RW_NEXT = "next";
+        const char* RW_RET= "return";
 };
 
 
@@ -100,10 +111,11 @@ class TokenDefTreeNode {
 class LexToken {
     
     public:
-        const char* value;
+        std::string value;
         cnst_TokenType type;
         
-        LexToken(cnst_TokenType cnst_type, const char* val) {
+        LexToken(cnst_TokenType cnst_type, std::string val) {
+            printf("ctor: char=%s \n", val);
             value = val;
             type = cnst_type;
         }
@@ -158,6 +170,22 @@ class Lexer {
             return UNDF;
         }
 
+        bool is_br_tk(char c) {
+            return c == token_defs.BR_LCIR ||
+                c == token_defs.BR_LFIG ||
+                c == token_defs.BR_LSQUARE ||
+                c == token_defs.BR_RCIR ||
+                c == token_defs.BR_RFIG ||
+                c == token_defs.BR_RSQUARE;
+        }
+
+        bool is_smb_tk(char c) {
+            return c == token_defs.SMB_CMA ||
+                c == token_defs.SMB_DOT ||
+                c == token_defs.SMB_END;
+        }
+
+
     public:
         
         static Lexer* crt() {
@@ -166,17 +194,9 @@ class Lexer {
         }
 
         void make_tokens(std::string* src, std::vector<LexToken>* tokens) {
-            /*
-                int main() {
-                    int t = 5;
-
-                    return 0;
-                }
-            */
-
+ 
             size_t stlen = src->length();
             std::cout << stlen << std::endl;
-
 
             std::ostringstream bld;
             size_t cur = 0;
@@ -184,26 +204,54 @@ class Lexer {
 
             while(cur < stlen && src->at(cur) != '\0') {
                 
-                // to next ' '
+                // symbols, 
+                if (this->is_br_tk(src->at(temp))) {
+
+                    tokens->push_back(
+                        LexToken(
+                            SYMBOL_BRACKET,
+                            src->substr(temp, 1)));
+
+                    cur++;
+                    temp = cur;
+                    continue;
+                }
+                else if (this->is_smb_tk(src->at(temp))) {
+
+                    tokens->push_back(
+                        LexToken(
+                            SYMBOL,
+                            src->substr(temp, 1)));
+
+                    cur++;
+                    temp = cur;
+                    continue;
+                }
+
+                // todo: +operands (all single values)
+
+
+                // pull bld, ' '
                 while(temp < stlen && src->at(temp) != ' ') {
-                    bld.put(src->at(temp));
                     
-                    // TODO: add symbols and breaks
+                    // TODO: парс литерала, вара ДО символа ;({
+                    // TODO: +literals, vars
+                    bld.put(src->at(temp));
 
                     temp++;
                 }
 
-                if (src->at(cur) != ' ') {
+                if (bld.tellp() > 0) {
+                    
+                    // TODO: prse_word добавить новые токены
+
                     cnst_TokenType ttype = prse_word(bld.str());
                     if (ttype != UNDF) {
 
-                        const char* cv = bld.str().c_str();
-                        std::cout << "token - " << cv << std::endl;
-                        
-                        // TODO: fix
                         tokens->push_back(
-                            LexToken(ttype, cv));
+                            LexToken(ttype, bld.str()));
                     }
+
                     bld.str("");
                 }
 
@@ -231,6 +279,12 @@ void file__readSource(const char* path, std::string *str) {
 }
 
 
+void vec_dump(std::vector<LexToken>* vec) {
+    for(LexToken i : *vec) {
+        printf("vec<token> [val=%s, type=%i] \n", i.value.c_str(), i.type);
+    }
+}
+
 
 int main() {
 
@@ -242,11 +296,18 @@ int main() {
     file__readSource("src.nem", &src);
 
     std::vector<LexToken> vec;
+    //LexToken* tk = new LexToken(SYMBOL_BRACKET, "test");
+
+    //std::string t = {"test"};
+    //LexToken* tk = new LexToken(SYMBOL_BRACKET, t);
+
+    //vec.push_back(LexToken(SYMBOL_BRACKET, "test"));
     lex->make_tokens(&src, &vec);
 
     std::cout << src << std::endl;
     std::cout << token_defs.TYPE_DOUBLE << std::endl;
-    std::cout << vec.at(0).value << std::endl;
+
+    vec_dump(&vec);
 
     return 0;
 }
