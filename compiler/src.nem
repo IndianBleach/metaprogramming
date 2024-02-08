@@ -1,5 +1,5 @@
 int main() {
     int t = 5.1234;
-
+    char va = '[';
     return 0;
 }
