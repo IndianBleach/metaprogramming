@@ -15,8 +15,13 @@ enum cnst_TokenType {
     LIST_VALUES,
     LIST_VARS,
 
+    MATH_COMPARE,
+    MATH_OPERATION,
+    MATH_LOGIC,
+
     VAR_NAME,
-    
+    VAR_SET,
+
     LITERAL_NUM,
     LITERAL_STRING,
     LITERAL_CHAR, 
@@ -57,11 +62,22 @@ class token_alphabet {
         const char OP_DIV = '/';
 
         // logic
-        const char* LOG_EQ = "==";
         const char* LOG_AND = "&";
         const char* LOG_OR = "|";
         const char* LOG_DAND = "&&";
         const char* LOG_DOR = "||";
+
+        // compare
+        const char CMP_LEFT = '<';
+        const char CMP_RIGHT = '>';
+        const char* CMP_EQLEFT = "<=";
+        const char* CMP_EQRIGHT = ">=";
+        const char* CMP_EQLEFT = "<=";
+        const char* CMP_EQ = "==";
+        const char* CMP_NEQ = "!=";
+
+        // set
+        const char VAR_SET = '='; 
 
         // symbols
         const char SMB_DOT = '.';
@@ -134,9 +150,6 @@ class Lexer {
         // TODO: to tree?
         cnst_TokenType prse_word(std::string str) {
             
-            //const char* s = str.c_str();
-
-            // todo: <>=
 
             if (str == token_defs.TYPE_INT ||
                 str == token_defs.TYPE_DOUBLE ||
@@ -183,7 +196,9 @@ class Lexer {
                 }
             }
 
-            // TODO: add op
+            // TODO: m_compare, m_operation, m_logic, var_set
+
+
             return UNDF;
         }
 
@@ -221,6 +236,7 @@ class Lexer {
                 (c >= '0' && c <= '9');
         }
 
+
     public:
         
         static Lexer* crt() {
@@ -239,7 +255,6 @@ class Lexer {
 
             while(cur < stlen && src->at(cur) != '\0') {
                 
-                // symbols, 
                 if (this->is_br_tk(src->at(temp))) {
 
                     tokens->push_back(
@@ -278,7 +293,6 @@ class Lexer {
                 bool is_char_lit = false;
                 bool is_varname = false;
 
-                // pull bld, ' '
                 while(temp < stlen && src->at(temp) != ' ') {
                     
                     // LITERALS.NUMBER
@@ -372,8 +386,6 @@ class Lexer {
                 }
                 else if (bld.tellp() > 0) {
                     
-                    // TODO: prse_word добавить новые токены
-
                     cnst_TokenType ttype = prse_word(bld.str());
                     if (ttype != UNDF) {
 
