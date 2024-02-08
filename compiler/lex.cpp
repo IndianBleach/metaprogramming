@@ -136,6 +136,8 @@ class Lexer {
             
             //const char* s = str.c_str();
 
+            // todo: <>=
+
             if (str == token_defs.TYPE_INT ||
                 str == token_defs.TYPE_DOUBLE ||
                 str == token_defs.TYPE_CHAR ||
@@ -151,7 +153,8 @@ class Lexer {
                 str == token_defs.RW_FOR ||
                 str == token_defs.RW_FUNC ||
                 str == token_defs.RW_NEXT ||
-                str == token_defs.RW_WHILE) {
+                str == token_defs.RW_WHILE ||
+                str == token_defs.RW_RET) {
                     return RESERVE_WORD;
                 }
             
@@ -169,6 +172,16 @@ class Lexer {
                 s == token_defs.SMB_END) {
                     return SYMBOL;
                 }
+
+            if (str.length() > 0) {
+                if ((s >= 'a' && s <= 'z') ||
+                    (s >= 'A' && s <= 'Z')) {
+                        return VAR_NAME;
+                    }
+                else {
+                    // error varname
+                }
+            }
 
             // TODO: add op
             return UNDF;
@@ -200,6 +213,12 @@ class Lexer {
         // fix, parse each literal type in function
         bool is_num_literal(char c) {
             return c >= '0' && c <= '9';
+        }
+
+        bool is_varname_char(char c) {
+            return (c >= 'a' && c <= 'z') ||
+                (c >= 'A' && c <= 'Z') ||
+                (c >= '0' && c <= '9');
         }
 
     public:
@@ -257,11 +276,11 @@ class Lexer {
                 bool is_num_lit = false;
                 bool is_str_lit = false;
                 bool is_char_lit = false;
+                bool is_varname = false;
 
                 // pull bld, ' '
                 while(temp < stlen && src->at(temp) != ' ') {
                     
-
                     // LITERALS.NUMBER
                     if (this->is_num_literal(src->at(temp)) && bld.tellp() == 0) {
 
@@ -291,10 +310,10 @@ class Lexer {
                         cur = temp;
                         break;
                     }
-
+                    
                     //  LITERALS.STRING
                     char curc = src->at(temp);
-                    if (curc == '"') {
+                    if (curc == '"'  && bld.tellp() == 0) {
                         is_str_lit = true;
                         temp++;
 
@@ -312,7 +331,7 @@ class Lexer {
                     }
 
                     // LITERALS.CHAR
-                    if (curc == '\'') {
+                    if (curc == '\'' && bld.tellp() == 0) {
                         if ((temp+2) < stlen &&
                             src->at(temp+2) == '\'') {
                             bld.put(src->at(temp+1));
@@ -326,17 +345,12 @@ class Lexer {
                         }
                     }
 
-
-                    // VARNAMES
-                    if ((curc >= 'a' || curc <= 'z') ||
-                        (curc >= 'A' || curc <= 'Z')) {
-
+                    // VARNAME STOP
+                    if (this->is_varname_char(curc) == false) {
+                        cur = temp;
+                        break;
                     }
 
-
-
-                    // TODO: парс литерала, вара ДО символа ;({
-                    // TODO: +literals, vars
                     bld.put(src->at(temp++));
                 }
 
@@ -352,6 +366,10 @@ class Lexer {
                     tokens->push_back(
                         LexToken(LITERAL_CHAR, bld.str()));
                 }
+                else if (is_varname) {
+                tokens->push_back(
+                        LexToken(VAR_NAME, bld.str()));
+                }
                 else if (bld.tellp() > 0) {
                     
                     // TODO: prse_word добавить новые токены
@@ -361,6 +379,13 @@ class Lexer {
 
                         tokens->push_back(
                             LexToken(ttype, bld.str()));
+
+                        cur = temp;
+                        bld.str("");
+                        continue;
+                    }
+                    else if(ttype == UNDF) {
+                        // error
                     }
                 }
 
