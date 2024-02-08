@@ -16,7 +16,8 @@ enum cnst_TokenType {
     LIST_VARS,
 
     VAR_NAME,
-    LITERAL,
+    LITERAL_NUM,
+    LITERAL_STRING,
     TYPE,
     RESERVE_WORD,
     OPERAND,
@@ -185,6 +186,18 @@ class Lexer {
                 c == token_defs.SMB_END;
         }
 
+        bool is_operand_tk(char c) {
+            return c == token_defs.OP_PL ||
+                c == token_defs.OP_DIV ||
+                c == token_defs.OP_MIN ||
+                c == token_defs.OP_MUL ||
+                c == token_defs.OP_PDIV;
+        }
+
+        bool is_num_literal(char c) {
+            return c >= '0' && c <= '9';
+        }
+
 
     public:
         
@@ -227,21 +240,71 @@ class Lexer {
                     temp = cur;
                     continue;
                 }
+                else if (this->is_operand_tk(src->at(temp))) {
+                    tokens->push_back(
+                        LexToken(
+                            OPERAND,
+                            src->substr(temp, 1)));
 
-                // todo: +operands (all single values)
+                    cur++;
+                    temp = cur;
+                    continue;
+                }
 
+                bool is_num_lit = false;
 
                 // pull bld, ' '
                 while(temp < stlen && src->at(temp) != ' ') {
                     
+
+                    // LITERALS.NUMBER
+                    if (this->is_num_literal(src->at(temp)) && bld.tellp() == 0) {
+
+                        is_num_lit = true;
+                        
+                        while(temp < stlen) {
+                            if (this->is_num_literal(src->at(temp))) {
+                                // add lit_bld
+                                bld.put(src->at(temp++));
+                            }
+                            else if (src->at(temp) == '.') {
+                                
+                                if (bld.tellp() == 0) {
+                                    // error ' .243 '
+                                }
+                                else {
+                                    bld.put(src->at(temp++));
+                                }
+                            }
+                            else {
+                                temp--;
+                                break;
+                            }
+                            //temp++;
+                        }
+
+                        cur = temp;
+
+                        break;
+                    }
+
+                    //  LITERALS.STRING
+
+                    // VARNAMES
+
                     // TODO: парс литерала, вара ДО символа ;({
                     // TODO: +literals, vars
-                    bld.put(src->at(temp));
-
-                    temp++;
+                    bld.put(src->at(temp++));
                 }
 
-                if (bld.tellp() > 0) {
+                if (is_num_lit) {
+                    tokens->push_back(
+                        LexToken(LITERAL_NUM, bld.str()));
+                    
+                    bld.str("");
+                }
+                // lit flag
+                else if (bld.tellp() > 0) {
                     
                     // TODO: prse_word добавить новые токены
 
