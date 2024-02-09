@@ -196,8 +196,30 @@ class Lexer {
                 }
             }
 
-            // TODO: m_compare, m_operation, m_logic, var_set
+            if (s == token_defs.OP_DIV ||
+                s == token_defs.OP_MIN ||
+                s == token_defs.OP_MUL ||
+                S == token_defs.OP_PDIV ||
+                s == token_defs.OP_PL)
+                return MATH_OPERATION;
 
+            if (s == token_defs.CMP_EQ ||
+                s == token_defs.CMP_EQLEFT ||
+                s == token_defs.CMP_EQRIGHT ||
+                s == token_defs.CMP_LEFT ||
+                s == token_defs.CMP_NEQ ||
+                s == token_defs.CMP_RIGHT)
+                return MATH_COMPARE;
+
+            // TODO: m_compare, m_operation, m_logic, var_set
+            if (s == token_defs.LOG_AND ||
+                s == token_defs.LOG_OR ||
+                str == token_defs.LOG_DAND ||
+                str == token_defs.LOG_DOR)
+                return MATH_LOGIC;
+
+            if (s == token_defs.VAR_SET)
+                return VAR_SET;
 
             return UNDF;
         }
