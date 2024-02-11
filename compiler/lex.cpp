@@ -32,37 +32,68 @@ enum cnst_TokenType {
     OPERAND,
     SYMBOL_BRACKET,
     SYMBOL,
+    SYMBOL_END,
     UNDF = -1
 };
+
+
+enum cmpl_states {
+    SET_VARIABLE,
+};
+
 
 class gram_tnode {
     public:
         std::vector<gram_tnode*>* childrens;
-        std::string* value;
+        const std::string* value;
         cnst_TokenType type;
+
+        bool meta_inited = false;
+        cmpl_states meta_state;
         // todo: some metadata? (blockLevel, priority)
         gram_tnode(std::string* _val, cnst_TokenType _type) {
             
             value = _val;
             type = _type;
+            meta_inited = true;
+            childrens = new std::vector<gram_tnode*>();
+        };
+
+        gram_tnode(std::string* _val, cnst_TokenType _type, cmpl_states _meta_state) {
+            
+            value = _val;
+            type = _type;
+            meta_state = _meta_state;
+            meta_inited = true;
             childrens = new std::vector<gram_tnode*>();
         };
 
         // / ctr()
 };
 
-class utils {
-    public:
-        gram_tnode* gram_tnode_crt(std::string* _val, cnst_TokenType _type) {
+        gram_tnode* gram_tnode_crt(const std::string* _val, cnst_TokenType _type) {
             gram_tnode* nd = (gram_tnode*)malloc(sizeof(gram_tnode));
             
             nd->value = _val;
             nd->type = _type;
+            nd->meta_inited = true;
             nd->childrens = new std::vector<gram_tnode*>();
 
             return nd;
         }
-};
+
+        gram_tnode* gram_tnode_crt(const std::string* _val, cnst_TokenType _type, cmpl_states state) {
+            gram_tnode* nd = (gram_tnode*)malloc(sizeof(gram_tnode));
+            
+            nd->value = _val;
+            nd->type = _type;
+            nd->meta_inited = true;
+            nd->childrens = new std::vector<gram_tnode*>();
+
+            nd->meta_state = state;
+
+            return nd;
+        }
 
 // add variable_set
 /*
@@ -84,51 +115,58 @@ class grammatical_rule_list {
         }
 };
 
-void add_rule(std::vector<gram_tnode*>* rootList, int n, gram_tnode* nodes[]) {
+int vec_find_node(
+    gram_tnode* target,
+    std::vector<gram_tnode*>* vec) {
+    int i = 0;
+    for(gram_tnode* node : *vec) {
+        if (node->value == target->value &&
+            node->type == target->type) {
+                return i;
+            }
+        i++;
+    }
 
-    //gram_tnode* t = root;
+    return -1;
+}
 
-    printf("ADD %i\n", (int)(rootList->size()));
+void add_rule(
+    std::vector<gram_tnode*>* rootList,
+    std::initializer_list<gram_tnode*> nodes,
+    cmpl_states state_type) {
 
     std::vector<gram_tnode*>* t = rootList;
     
-    for(int i=0;i<n; i++)
-    {
-        printf("ADD %i\n", (int)(t->size()));
-        t->push_back(nodes[i]);
+    gram_tnode* target = nodes[0];
 
-        t = t->at(t->size()-1)->childrens;
+    // TODO_1: поиск в дереве такого правила, дополнение его
+    // find_node - добавить массив для жадного поиска, return ptr*
+    // прикрепить остальные ноды к ptr
+
+    int skip = 0;
+    gram_tnode* index;
+
+
+    for(auto i : nodes)
+    {
+        t->push_back(i);
+        
+        t = i->childrens;
     }
 }
 
-void rules_add_varsets(grammatical_rule_list* ls) {
-    
-    /*
-    ls->roots->push_back(gram_tnode {
-        "int",
-        TYPE,
-    });
-
-    ls->roots->at(0).childrens->push_back(gram_tnode {
-        "int",
-        TYPE,
-    });
-    */
-
-
-}
 
 
 class token_alphabet {
     public:
         // types
-        const char* TYPE_INT = "int";
-        const char* TYPE_DOUBLE = "double";
-        const char* TYPE_CHAR = "char";
-        const char* TYPE_FLOAT = "float";
-        const char* TYPE_BYTE = "byte";
-        const char* TYPE_LONG = "long";
-        const char* TYPE_STRING = "string";
+        const std::string TYPE_INT = "int";
+        const std::string TYPE_DOUBLE = "double";
+        const std::string TYPE_CHAR = "char";
+        const std::string TYPE_FLOAT = "float";
+        const std::string TYPE_BYTE = "byte";
+        const std::string TYPE_LONG = "long";
+        const std::string TYPE_STRING = "string";
 
         // brackets
         const char BR_RCIR = ')';
@@ -137,6 +175,13 @@ class token_alphabet {
         const char BR_LCIR = '(';
         const char BR_LSQUARE = '[';
         const char BR_LFIG = '{';
+        
+        const std::string  _BR_RCIR = ")";
+        const std::string  _BR_RSQUARE = "]";
+        const std::string  _BR_RFIG = "}";
+        const std::string  _BR_LCIR = "(";
+        const std::string  _BR_LSQUARE = "[";
+        const std::string  _BR_LFIG = "{";
 
         // operands
         const char OP_PL = '+';
@@ -145,23 +190,35 @@ class token_alphabet {
         const char OP_PDIV = '%';
         const char OP_DIV = '/';
 
+        const std::string _OP_PL = "+";
+        const std::string _OP_MIN = "-";
+        const std::string _OP_MUL = "*";
+        const std::string _OP_PDIV = "%";
+        const std::string _OP_DIV = "/";
+
         // logic
         const char LOG_AND = '&';
         const char LOG_OR = '|';
-        const char* LOG_DAND = "&&";
-        const char* LOG_DOR = "||";
+        const std::string LOG_DAND = "&&";
+        const std::string LOG_DOR = "||";
+
+        const std::string _LOG_AND = "&";
+        const std::string _LOG_OR = "|";
 
         // compare
         const char CMP_LEFT = '<';
         const char CMP_RIGHT = '>';
-        const char* CMP_EQLEFT = "<=";
-        const char* CMP_EQRIGHT = ">=";
-        //const char* CMP_EQLEFT = "<=";
-        const char* CMP_EQ = "==";
-        const char* CMP_NEQ = "!=";
+        const std::string CMP_EQLEFT = "<=";
+        const std::string CMP_EQRIGHT = ">=";
+        const std::string CMP_EQ = "==";
+        const std::string CMP_NEQ = "!=";
+
+        const std::string _CMP_LEFT = "<";
+        const std::string _CMP_RIGHT = ">";
 
         // set
         const char VAR_SET = '='; 
+        const std::string _VAR_SET = "="; 
 
         // symbols
         const char SMB_DOT = '.';
@@ -169,49 +226,106 @@ class token_alphabet {
         const char SMB_CMA = ',';
         const char SMB_VAR = '=';
 
+        const std::string _SMB_DOT = ".";
+        const std::string _SMB_END = ";";
+        const std::string _SMB_CMA = ",";
+        //const std::string _SMB_VAR = "=";
+
         // reserve words
-        const char* RW_FOR = "for";
-        const char* RW_AUTO = "auto";
-        const char* RW_WHILE = "while";
-        const char* RW_FUNC = "func";
-        const char* RW_CLASS = "class";
-        const char* RW_NEXT = "next";
-        const char* RW_RET= "return";
+        const std::string RW_FOR = "for";
+        const std::string RW_AUTO = "auto";
+        const std::string RW_WHILE = "while";
+        const std::string RW_FUNC = "func";
+        const std::string RW_CLASS = "class";
+        const std::string RW_NEXT = "next";
+        const std::string RW_RET= "return";
+
+        const char* _SPEC_VARNAME = "<var>";
 };
 
-/*
+token_alphabet token_defs;
 
-class TokenDefTreeNode {
-    public:
-        std::vector<TokenDefTreeNode*>* childrens;
-        char value;
-        cnst_TokenType complete_flag;
+// varsets
+// funcs
+// cycles
+// 
 
-        TokenDefTreeNode(char val) {
-            childrens = (std::vector<TokenDefTreeNode*>*)malloc(sizeof(std::vector<TokenDefTreeNode*>));
-            value = val;
-        }
+void make_rules(grammatical_rule_list* ls) {
+    
+    // SET_VARIABLE
+    add_rule(
+        ls->roots, {
+            gram_tnode_crt(&(token_defs.TYPE_INT), TYPE),
+            gram_tnode_crt(NULL, VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
+            gram_tnode_crt(NULL, LITERAL_NUM),
+            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+        },
+        cmpl_states::SET_VARIABLE);
 
-        TokenDefTreeNode* crt(char val) {
-            TokenDefTreeNode* node = (TokenDefTreeNode*)malloc(sizeof(TokenDefTreeNode));
-            node->childrens = (std::vector<TokenDefTreeNode*>*)malloc(sizeof(std::vector<TokenDefTreeNode*>));
-            node->value = val;
-            node->complete_flag = UNDF;
-        }
 
-        void put_word(TokenDefTreeNode* root, char* str) {
+    add_rule(
+        ls->roots, {
+            gram_tnode_crt(&(token_defs.TYPE_CHAR), TYPE),
+            gram_tnode_crt(NULL, VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
+            gram_tnode_crt(NULL, LITERAL_CHAR),
+            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+        },
+        cmpl_states::SET_VARIABLE);
 
-        }
+    add_rule(
+        ls->roots, {
+            gram_tnode_crt(&(token_defs.TYPE_DOUBLE), TYPE),
+            gram_tnode_crt(NULL, VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
+            gram_tnode_crt(NULL, LITERAL_NUM),
+            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+        },
+        cmpl_states::SET_VARIABLE);
 
-        void index_of(TokenDefTreeNode* root)
-        {}
+    add_rule(
+        ls->roots, {
+            gram_tnode_crt(&(token_defs.TYPE_FLOAT), TYPE),
+            gram_tnode_crt(NULL, VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
+            gram_tnode_crt(NULL, LITERAL_NUM),
+            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+        },
+        cmpl_states::SET_VARIABLE);
 
-        TokenDefTreeNode* crt_fulldef_root() {
-            TokenDefTreeNode* root = crt('_');
-            // add types
-        }
-};
-*/
+    add_rule(
+        ls->roots, {
+            gram_tnode_crt(&(token_defs.TYPE_INT), TYPE),
+            gram_tnode_crt(NULL, VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
+            gram_tnode_crt(NULL, LITERAL_NUM),
+            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+        },
+        cmpl_states::SET_VARIABLE);
+
+    add_rule(
+        ls->roots, {
+            gram_tnode_crt(&(token_defs.TYPE_LONG), TYPE),
+            gram_tnode_crt(NULL, VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
+            gram_tnode_crt(NULL, LITERAL_NUM),
+            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+        },
+        cmpl_states::SET_VARIABLE);
+
+    add_rule(
+        ls->roots, {
+            gram_tnode_crt(&(token_defs.TYPE_STRING), TYPE),
+            gram_tnode_crt(NULL, VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
+            gram_tnode_crt(NULL, LITERAL_STRING),
+            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+        },
+        cmpl_states::SET_VARIABLE);
+
+}
+
 
 
 class LexToken {
@@ -228,7 +342,7 @@ class LexToken {
 
 };
 
-token_alphabet token_defs;
+
 
 class Lexer {
 
@@ -394,6 +508,9 @@ class Lexer {
             std::ostringstream bld;
             size_t cur = 0;
             size_t temp = 0;
+
+            // TODO_3: fix char substr,. control memory
+
 
             while(cur < stlen && src->at(cur) != '\0') {
                 
@@ -601,6 +718,40 @@ void vec_dump(std::vector<LexToken>* vec) {
     }
 }
 
+void vec_dump_node(std::vector<gram_tnode*>* vec, int deep) {
+    
+    if (deep == 1) {
+        printf("%s~", std::string(deep, ' ').c_str());
+    }
+    else {
+        printf("%s ", std::string(deep, ' ').c_str());
+    }
+
+    for(gram_tnode* j : *vec) {
+        printf("%s ", j->value == NULL ? token_defs._SPEC_VARNAME : (j->value->c_str()));
+    }
+
+    printf("\n");
+
+    for(gram_tnode* i : *vec) {
+        
+        if (i->meta_inited) {
+                        
+            if (i->childrens->size() > 0) {
+
+                vec_dump_node(i->childrens, deep+1);
+            }
+        }
+    }
+}
+
+
+void dump_rules(grammatical_rule_list* ls) {
+    for(auto i : *ls->roots) {
+        vec_dump_node(ls->roots, 1);
+    }
+}
+
 
 int main() {
 
@@ -619,22 +770,11 @@ int main() {
 
     grammatical_rule_list* ls = grammatical_rule_list::crt_filled_rulelist();
 
-    utils ut = utils();
+    make_rules(ls);
 
-    printf("deb\n");
+    //dump_rules(ls);
 
-
-    gram_tnode* data[2] = {
-        ut.gram_tnode_crt(new std::string("int"), TYPE),
-        ut.gram_tnode_crt(new std::string("_"), VAR_SET),
-    };
-
-    printf("deb2\n");
-
-    add_rule(ls->roots, 2, data);
-
-
-    std::cout << ls->roots->at(0)->childrens->at(0)->value->c_str() << std::endl;
+    //std::cout << ls->roots->at(0)->childrens->at(0)->value->c_str() << std::endl;
 
     return 0;
 }
