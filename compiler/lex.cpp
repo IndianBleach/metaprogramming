@@ -62,8 +62,8 @@ class token_alphabet {
         const char OP_DIV = '/';
 
         // logic
-        const char* LOG_AND = "&";
-        const char* LOG_OR = "|";
+        const char LOG_AND = '&';
+        const char LOG_OR = '|';
         const char* LOG_DAND = "&&";
         const char* LOG_DOR = "||";
 
@@ -72,7 +72,7 @@ class token_alphabet {
         const char CMP_RIGHT = '>';
         const char* CMP_EQLEFT = "<=";
         const char* CMP_EQRIGHT = ">=";
-        const char* CMP_EQLEFT = "<=";
+        //const char* CMP_EQLEFT = "<=";
         const char* CMP_EQ = "==";
         const char* CMP_NEQ = "!=";
 
@@ -199,15 +199,15 @@ class Lexer {
             if (s == token_defs.OP_DIV ||
                 s == token_defs.OP_MIN ||
                 s == token_defs.OP_MUL ||
-                S == token_defs.OP_PDIV ||
+                s == token_defs.OP_PDIV ||
                 s == token_defs.OP_PL)
                 return MATH_OPERATION;
 
-            if (s == token_defs.CMP_EQ ||
-                s == token_defs.CMP_EQLEFT ||
-                s == token_defs.CMP_EQRIGHT ||
+            if (str == token_defs.CMP_EQ ||
+                str == token_defs.CMP_EQLEFT ||
+                str == token_defs.CMP_EQRIGHT ||
                 s == token_defs.CMP_LEFT ||
-                s == token_defs.CMP_NEQ ||
+                str == token_defs.CMP_NEQ ||
                 s == token_defs.CMP_RIGHT)
                 return MATH_COMPARE;
 
@@ -257,6 +257,40 @@ class Lexer {
                 (c >= 'A' && c <= 'Z') ||
                 (c >= '0' && c <= '9');
         }
+
+        cnst_TokenType parse_two_smb_tk(char cur, char next) {
+            if ((cur == '=' && next == '>') ||
+                (cur == '=' && next == '=') ||
+                (cur == '<' && next == '=') ||
+                (cur == '!' && next == '=') ||
+                (cur == '<') || (cur == '>')) {
+                return MATH_COMPARE;
+            }
+            else if ((cur == '&' && next == '&') ||
+                (cur == '|' && next == '|') ||
+                (cur == '&') || (cur == '|')) {
+                    return MATH_LOGIC;
+                }
+            else if (cur == '=') {
+                return VAR_SET;
+            }
+            else return UNDF;
+        }
+
+        cnst_TokenType parse_one_smb_tk(char cur) {
+            if ((cur == '<') || (cur == '>')) {
+                return MATH_COMPARE;
+            }
+            else if ((cur == '&') || (cur == '|')) {
+                    return MATH_LOGIC;
+                }
+            else if (cur == '=') {
+                return VAR_SET;
+            }
+            else return UNDF;
+        }
+
+
 
 
     public:
@@ -308,6 +342,36 @@ class Lexer {
                     cur++;
                     temp = cur;
                     continue;
+                }
+                else if (cur +1 < stlen) {
+                    
+                    // 2 symbol tokens
+                    cnst_TokenType token_type = parse_two_smb_tk(src->at(cur), src->at(cur+1));
+                    
+                    if (token_type != UNDF) {
+                        tokens->push_back(
+                            LexToken(
+                                token_type,
+                                src->substr(cur, 2)));
+
+                        cur+=2;
+                        temp = cur;
+                        continue;
+                    }
+
+                    // 1  symbol tokens
+                    token_type = parse_one_smb_tk(src->at(cur));
+                    
+                    if (token_type != UNDF) {
+                        tokens->push_back(
+                            LexToken(
+                                token_type,
+                                src->substr(cur, 1)));
+
+                        cur+=1;
+                        temp = cur;
+                        continue;
+                    }
                 }
 
                 bool is_num_lit = false;
@@ -386,6 +450,8 @@ class Lexer {
                         cur = temp;
                         break;
                     }
+
+
 
                     bld.put(src->at(temp++));
                 }
