@@ -3,10 +3,11 @@
 #include <string>
 #include <sstream>
 
+#include <stdarg.h>
+
 #include <vector>
 
 // token (type, val)
-
 
 enum cnst_TokenType {
     ARRAY,
@@ -33,6 +34,89 @@ enum cnst_TokenType {
     SYMBOL,
     UNDF = -1
 };
+
+class gram_tnode {
+    public:
+        std::vector<gram_tnode*>* childrens;
+        std::string* value;
+        cnst_TokenType type;
+        // todo: some metadata? (blockLevel, priority)
+        gram_tnode(std::string* _val, cnst_TokenType _type) {
+            
+            value = _val;
+            type = _type;
+            childrens = new std::vector<gram_tnode*>();
+        };
+
+        // / ctr()
+};
+
+class utils {
+    public:
+        gram_tnode* gram_tnode_crt(std::string* _val, cnst_TokenType _type) {
+            gram_tnode* nd = (gram_tnode*)malloc(sizeof(gram_tnode));
+            
+            nd->value = _val;
+            nd->type = _type;
+            nd->childrens = new std::vector<gram_tnode*>();
+
+            return nd;
+        }
+};
+
+// add variable_set
+/*
+    VAR_SETS,
+*/
+
+
+
+class grammatical_rule_list {
+    public:
+        std::vector<gram_tnode*>* roots;
+
+        static grammatical_rule_list* crt_filled_rulelist() {
+            grammatical_rule_list* ls = (grammatical_rule_list*)malloc(sizeof(grammatical_rule_list));
+
+            ls->roots = new std::vector<gram_tnode*>();
+
+            return ls;
+        }
+};
+
+void add_rule(std::vector<gram_tnode*>* rootList, int n, gram_tnode* nodes[]) {
+
+    //gram_tnode* t = root;
+
+    printf("ADD %i\n", (int)(rootList->size()));
+
+    std::vector<gram_tnode*>* t = rootList;
+    
+    for(int i=0;i<n; i++)
+    {
+        printf("ADD %i\n", (int)(t->size()));
+        t->push_back(nodes[i]);
+
+        t = t->at(t->size()-1)->childrens;
+    }
+}
+
+void rules_add_varsets(grammatical_rule_list* ls) {
+    
+    /*
+    ls->roots->push_back(gram_tnode {
+        "int",
+        TYPE,
+    });
+
+    ls->roots->at(0).childrens->push_back(gram_tnode {
+        "int",
+        TYPE,
+    });
+    */
+
+
+}
 
 
 class token_alphabet {
@@ -95,6 +179,7 @@ class token_alphabet {
         const char* RW_RET= "return";
 };
 
+/*
 
 class TokenDefTreeNode {
     public:
@@ -126,6 +211,7 @@ class TokenDefTreeNode {
             // add types
         }
 };
+*/
 
 
 class LexToken {
@@ -451,8 +537,6 @@ class Lexer {
                         break;
                     }
 
-
-
                     bld.put(src->at(temp++));
                 }
 
@@ -493,9 +577,6 @@ class Lexer {
                 temp = cur;
                 bld.str("");
             }
-
-
-
         }
 };
 
@@ -523,26 +604,37 @@ void vec_dump(std::vector<LexToken>* vec) {
 
 int main() {
 
-    Lexer* lex = Lexer::crt();
-    //Lexer::token_defs = defs;
-    //lex->token_defs = defs;
+    //Lexer* lex = Lexer::crt();
 
-    std::string src;
-    file__readSource("src.nem", &src);
+    //std::string src;
+    //file__readSource("src.nem", &src);
 
-    std::vector<LexToken> vec;
-    //LexToken* tk = new LexToken(SYMBOL_BRACKET, "test");
+    //std::vector<LexToken> vec;
 
-    //std::string t = {"test"};
-    //LexToken* tk = new LexToken(SYMBOL_BRACKET, t);
+    //lex->make_tokens(&src, &vec);
 
-    //vec.push_back(LexToken(SYMBOL_BRACKET, "test"));
-    lex->make_tokens(&src, &vec);
+    //std::cout << src << std::endl;
 
-    std::cout << src << std::endl;
-    std::cout << token_defs.TYPE_DOUBLE << std::endl;
+    //vec_dump(&vec);
 
-    vec_dump(&vec);
+    grammatical_rule_list* ls = grammatical_rule_list::crt_filled_rulelist();
+
+    utils ut = utils();
+
+    printf("deb\n");
+
+
+    gram_tnode* data[2] = {
+        ut.gram_tnode_crt(new std::string("int"), TYPE),
+        ut.gram_tnode_crt(new std::string("_"), VAR_SET),
+    };
+
+    printf("deb2\n");
+
+    add_rule(ls->roots, 2, data);
+
+
+    std::cout << ls->roots->at(0)->childrens->at(0)->value->c_str() << std::endl;
 
     return 0;
 }
