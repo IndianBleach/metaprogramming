@@ -7,7 +7,10 @@
 
 #include <vector>
 
-// token (type, val)
+/*  TODO
+        - типы и обьявления в грамматику
+        - проверить типы в грамматике и попробовать собрать AST
+*/
 
 enum cnst_TokenType {
     
