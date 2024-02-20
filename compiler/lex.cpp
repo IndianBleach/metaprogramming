@@ -10,6 +10,9 @@
 // token (type, val)
 
 enum cnst_TokenType {
+    
+    META_REF_RULE,
+
     ARRAY,
 
     LIST_PARAMS,
@@ -37,8 +40,23 @@ enum cnst_TokenType {
 };
 
 
-enum cmpl_states {
-    SET_VARIABLE,
+enum meta_type {
+    UNDF_META,
+
+    VAR_INIT_INT,
+    VAR_INIT_FLOAT,
+    VAR_INIT_DOUBLE,
+    VAR_INIT_BYTE,
+    VAR_INIT_LONG,
+
+    VAR_INIT_CHAR,
+    VAR_INIT_CHAR_ARR,
+    VAR_DEF_CHAR,
+    VAR_DEF_CHAR_ARR,
+    INIT_CHAR_ARR,
+    
+    VAR_INIT_STRING,
+    VAR_INIT_BOOL,
 };
 
 
@@ -49,21 +67,23 @@ class gram_tnode {
         cnst_TokenType type;
 
         bool meta_inited = false;
-        cmpl_states meta_state;
+        
+        meta_type rule_name;
+        meta_type ref_rule;
+        
         // todo: some metadata? (blockLevel, priority)
         gram_tnode(std::string* _val, cnst_TokenType _type) {
-            
             value = _val;
             type = _type;
             meta_inited = true;
             childrens = new std::vector<gram_tnode*>();
         };
 
-        gram_tnode(std::string* _val, cnst_TokenType _type, cmpl_states _meta_state) {
+        gram_tnode(std::string* _val, cnst_TokenType _type, meta_type _rule_name) {
             
             value = _val;
             type = _type;
-            meta_state = _meta_state;
+            rule_name = _rule_name;
             meta_inited = true;
             childrens = new std::vector<gram_tnode*>();
         };
@@ -79,10 +99,13 @@ class gram_tnode {
             nd->meta_inited = true;
             nd->childrens = new std::vector<gram_tnode*>();
 
+            nd->rule_name = meta_type::UNDF_META;
+            nd->ref_rule = meta_type::UNDF_META;
+
             return nd;
         }
 
-        gram_tnode* gram_tnode_crt(const std::string* _val, cnst_TokenType _type, cmpl_states state) {
+        gram_tnode* gram_tnode_crt(const std::string* _val, cnst_TokenType _type, meta_type rule_name) {
             gram_tnode* nd = (gram_tnode*)malloc(sizeof(gram_tnode));
             
             nd->value = _val;
@@ -90,7 +113,22 @@ class gram_tnode {
             nd->meta_inited = true;
             nd->childrens = new std::vector<gram_tnode*>();
 
-            nd->meta_state = state;
+            nd->rule_name = rule_name;
+            nd->ref_rule = meta_type::UNDF_META;
+
+            return nd;
+        }
+
+        gram_tnode* gram_tnode_crt_REF_RULE(const std::string* _val, cnst_TokenType _type, meta_type ref_rule) {
+            gram_tnode* nd = (gram_tnode*)malloc(sizeof(gram_tnode));
+            
+            nd->value = _val;
+            nd->type = _type;
+            nd->meta_inited = true;
+            nd->childrens = new std::vector<gram_tnode*>();
+
+            nd->ref_rule = ref_rule;
+            nd->rule_name = UNDF_META;
 
             return nd;
         }
@@ -130,30 +168,30 @@ int vec_find_node(
     return -1;
 }
 
-void add_rule(
-    std::vector<gram_tnode*>* rootList,
+
+
+
+
+void add_gram_rule(
+    std::vector<gram_tnode*>* ls,
     std::initializer_list<gram_tnode*> nodes,
-    cmpl_states state_type) {
+    meta_type rule_type)
+{
+    std::vector<gram_tnode*>* t = (ls);
 
-    std::vector<gram_tnode*>* t = rootList;
-    
-    gram_tnode* target = nodes[0];
+    gram_tnode* last = NULL;
 
-    // TODO_1: поиск в дереве такого правила, дополнение его
-    // find_node - добавить массив для жадного поиска, return ptr*
-    // прикрепить остальные ноды к ptr
-
-    int skip = 0;
-    gram_tnode* index;
-
-
-    for(auto i : nodes)
-    {
-        t->push_back(i);
-        
-        t = i->childrens;
+    for(auto item : nodes) {
+        t->push_back(item);
+        t = (item->childrens); 
+        last = item;
     }
+
+    last->rule_name = rule_type;
 }
+
+
+
 
 
 
@@ -252,77 +290,123 @@ token_alphabet token_defs;
 
 void make_rules(grammatical_rule_list* ls) {
     
-    // SET_VARIABLE
-    add_rule(
+    // VARS.INT
+    add_gram_rule(
         ls->roots, {
-            gram_tnode_crt(&(token_defs.TYPE_INT), TYPE),
-            gram_tnode_crt(NULL, VAR_NAME),
-            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
-            gram_tnode_crt(NULL, LITERAL_NUM),
-            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+            gram_tnode_crt(&(token_defs.TYPE_INT),  cnst_TokenType::TYPE),
+            gram_tnode_crt(NULL,                    cnst_TokenType::VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET),  cnst_TokenType::VAR_SET),
+            gram_tnode_crt(NULL,                    cnst_TokenType::LITERAL_NUM),
+            gram_tnode_crt(&(token_defs._SMB_END),  cnst_TokenType::SYMBOL_END),
         },
-        cmpl_states::SET_VARIABLE);
+        meta_type::VAR_INIT_INT);
+
+    // VARS.FLOAT
+    add_gram_rule(
+        ls->roots, {
+            gram_tnode_crt(&(token_defs.TYPE_FLOAT),  cnst_TokenType::TYPE),
+            gram_tnode_crt(NULL,                    cnst_TokenType::VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET),  cnst_TokenType::VAR_SET),
+            gram_tnode_crt(NULL,                    cnst_TokenType::LITERAL_NUM),
+            gram_tnode_crt(&(token_defs._SMB_END),  cnst_TokenType::SYMBOL_END),
+        },
+        meta_type::VAR_INIT_FLOAT);
 
 
-    add_rule(
+    // VARS.DOUBLE
+    add_gram_rule(
         ls->roots, {
-            gram_tnode_crt(&(token_defs.TYPE_CHAR), TYPE),
-            gram_tnode_crt(NULL, VAR_NAME),
-            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
-            gram_tnode_crt(NULL, LITERAL_CHAR),
-            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+            gram_tnode_crt(&(token_defs.TYPE_DOUBLE),  cnst_TokenType::TYPE),
+            gram_tnode_crt(NULL,                    cnst_TokenType::VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET),  cnst_TokenType::VAR_SET),
+            gram_tnode_crt(NULL,                    cnst_TokenType::LITERAL_NUM),
+            gram_tnode_crt(&(token_defs._SMB_END),  cnst_TokenType::SYMBOL_END),
         },
-        cmpl_states::SET_VARIABLE);
+        meta_type::VAR_INIT_DOUBLE);
 
-    add_rule(
+    // VARS.BYTE
+    add_gram_rule(
         ls->roots, {
-            gram_tnode_crt(&(token_defs.TYPE_DOUBLE), TYPE),
-            gram_tnode_crt(NULL, VAR_NAME),
-            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
-            gram_tnode_crt(NULL, LITERAL_NUM),
-            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+            gram_tnode_crt(&(token_defs.TYPE_BYTE),  cnst_TokenType::TYPE),
+            gram_tnode_crt(NULL,                    cnst_TokenType::VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET),  cnst_TokenType::VAR_SET),
+            gram_tnode_crt(NULL,                    cnst_TokenType::LITERAL_NUM),
+            gram_tnode_crt(&(token_defs._SMB_END),  cnst_TokenType::SYMBOL_END),
         },
-        cmpl_states::SET_VARIABLE);
+        meta_type::VAR_INIT_BYTE);
 
-    add_rule(
+    // VARS.LONG
+    add_gram_rule(
         ls->roots, {
-            gram_tnode_crt(&(token_defs.TYPE_FLOAT), TYPE),
-            gram_tnode_crt(NULL, VAR_NAME),
-            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
-            gram_tnode_crt(NULL, LITERAL_NUM),
-            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+            gram_tnode_crt(&(token_defs.TYPE_LONG),  cnst_TokenType::TYPE),
+            gram_tnode_crt(NULL,                    cnst_TokenType::VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET),  cnst_TokenType::VAR_SET),
+            gram_tnode_crt(NULL,                    cnst_TokenType::LITERAL_NUM),
+            gram_tnode_crt(&(token_defs._SMB_END),  cnst_TokenType::SYMBOL_END),
         },
-        cmpl_states::SET_VARIABLE);
+        meta_type::VAR_INIT_LONG);
 
-    add_rule(
+    // ------------------------- VARS.CHAR
+    // char t = 't';
+    gram_tnode* char_root = gram_tnode_crt(&(token_defs.TYPE_CHAR),  cnst_TokenType::TYPE);
+    add_gram_rule(
         ls->roots, {
-            gram_tnode_crt(&(token_defs.TYPE_INT), TYPE),
-            gram_tnode_crt(NULL, VAR_NAME),
-            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
-            gram_tnode_crt(NULL, LITERAL_NUM),
-            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+            char_root,
+            gram_tnode_crt(NULL,                    cnst_TokenType::VAR_NAME),
+            gram_tnode_crt(&(token_defs._VAR_SET),  cnst_TokenType::VAR_SET),
+            gram_tnode_crt(NULL,                    cnst_TokenType::LITERAL_CHAR),
+            gram_tnode_crt(&(token_defs._SMB_END),  cnst_TokenType::SYMBOL_END),
         },
-        cmpl_states::SET_VARIABLE);
+        meta_type::VAR_INIT_CHAR);
 
-    add_rule(
-        ls->roots, {
-            gram_tnode_crt(&(token_defs.TYPE_LONG), TYPE),
-            gram_tnode_crt(NULL, VAR_NAME),
-            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
-            gram_tnode_crt(NULL, LITERAL_NUM),
-            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+    // char[] t;
+    gram_tnode* char_var = gram_tnode_crt(NULL, cnst_TokenType::VAR_NAME);
+    gram_tnode* char_close_br_ref = gram_tnode_crt(&(token_defs._BR_RSQUARE),  cnst_TokenType::SYMBOL_BRACKET);
+    add_gram_rule(
+        char_root->childrens, {
+            gram_tnode_crt(&(token_defs._BR_LSQUARE),  cnst_TokenType::SYMBOL_BRACKET),
+            char_close_br_ref,
+            char_var,
+            gram_tnode_crt(&(token_defs._SMB_END),  cnst_TokenType::SYMBOL_END),
         },
-        cmpl_states::SET_VARIABLE);
+        meta_type::VAR_DEF_CHAR_ARR);
+    
+    // char[] t = "QWD";
+    add_gram_rule(
+        char_var->childrens, {
+            gram_tnode_crt(&(token_defs._VAR_SET),  cnst_TokenType::VAR_SET),
+            gram_tnode_crt(NULL,  cnst_TokenType::LITERAL_STRING),
+            gram_tnode_crt(&(token_defs._SMB_END),  cnst_TokenType::SYMBOL_END),
+        },
+        meta_type::VAR_INIT_CHAR_ARR);
 
-    add_rule(
-        ls->roots, {
-            gram_tnode_crt(&(token_defs.TYPE_STRING), TYPE),
-            gram_tnode_crt(NULL, VAR_NAME),
-            gram_tnode_crt(&(token_defs._VAR_SET), VAR_SET),
-            gram_tnode_crt(NULL, LITERAL_STRING),
-            gram_tnode_crt(&(token_defs._SMB_END), SYMBOL_END),
+    // char[] "abc";
+    add_gram_rule(
+        char_close_br_ref->childrens, {
+            gram_tnode_crt(NULL,  cnst_TokenType::LITERAL_STRING),
+            gram_tnode_crt(&(token_defs._SMB_END),  cnst_TokenType::SYMBOL_END),
         },
-        cmpl_states::SET_VARIABLE);
+        meta_type::INIT_CHAR_ARR);
+
+    // ------------------------------- VARS.STRING
+    //string s = "123"
+    gram_tnode* str_node = gram_tnode_crt(&(token_defs._VAR_SET),  cnst_TokenType::VAR_SET);
+    add_gram_rule(
+        ls->roots, {
+            gram_tnode_crt(&(token_defs.TYPE_STRING),  cnst_TokenType::TYPE),
+            gram_tnode_crt(NULL,                    cnst_TokenType::VAR_NAME),
+            str_node,
+            gram_tnode_crt(NULL,                    cnst_TokenType::LITERAL_STRING),
+            gram_tnode_crt(&(token_defs._SMB_END),  cnst_TokenType::SYMBOL_END),
+        },
+        meta_type::VAR_INIT_STRING);
+
+    //string x = char[] "abc";
+    add_gram_rule(
+        str_node->childrens, {
+            gram_tnode_crt_REF_RULE(NULL,           cnst_TokenType::META_REF_RULE, meta_type::INIT_CHAR_ARR)
+        },
+        meta_type::VAR_INIT_STRING);
 
 }
 
@@ -421,7 +505,7 @@ class Lexer {
             if (s == token_defs.VAR_SET)
                 return VAR_SET;
 
-            return UNDF;
+            return cnst_TokenType::UNDF;
         }
 
         bool is_br_tk(char c) {
@@ -474,7 +558,7 @@ class Lexer {
             else if (cur == '=') {
                 return VAR_SET;
             }
-            else return UNDF;
+            else return cnst_TokenType::UNDF;
         }
 
         cnst_TokenType parse_one_smb_tk(char cur) {
@@ -487,7 +571,7 @@ class Lexer {
             else if (cur == '=') {
                 return VAR_SET;
             }
-            else return UNDF;
+            else return cnst_TokenType::UNDF;
         }
 
 
@@ -718,40 +802,47 @@ void vec_dump(std::vector<LexToken>* vec) {
     }
 }
 
-void vec_dump_node(std::vector<gram_tnode*>* vec, int deep) {
-    
-    if (deep == 1) {
-        printf("%s~", std::string(deep, ' ').c_str());
+void vec_dump_node(gram_tnode* vec, int deep = 1) {
+
+    if (vec->value !=  NULL) {
+        printf("%s", vec->value->c_str());
     }
-    else {
-        printf("%s ", std::string(deep, ' ').c_str());
-    }
-
-    for(gram_tnode* j : *vec) {
-        printf("%s ", j->value == NULL ? token_defs._SPEC_VARNAME : (j->value->c_str()));
-    }
-
-    printf("\n");
-
-    for(gram_tnode* i : *vec) {
-        
-        if (i->meta_inited) {
-                        
-            if (i->childrens->size() > 0) {
-
-                vec_dump_node(i->childrens, deep+1);
-            }
+        if (vec->type == cnst_TokenType::TYPE) {
+            printf("%s ", vec->value == NULL ? "<type>" : "");
         }
-    }
-}
+        else if (vec->type == cnst_TokenType::VAR_NAME) {
+            printf("%s ", vec->value == NULL ? "<var>" : "");
+        } 
+        else if (vec->type == cnst_TokenType::LITERAL_NUM) {
+            printf("%s ", vec->value == NULL ? "<lit_num>" : "");
+        }
+        else if (vec->type == cnst_TokenType::LITERAL_CHAR) {
+            printf("%s ", vec->value == NULL ? "<lit_char>" : "");
+        }
+        else if (vec->type == cnst_TokenType::LITERAL_STRING) {
+            printf("%s ", vec->value == NULL ? "<lit_str>" : "");
+        }
+        else if (vec->type == cnst_TokenType::META_REF_RULE) {
+            printf("@ref=%i ", vec->ref_rule);
+        }
 
+    if (vec->rule_name != meta_type::UNDF_META) {
+        printf(" | ");
+    }
+
+    for(auto i : *vec->childrens) {
+        vec_dump_node(i, deep+1);
+    }
+
+    if (deep == 1) 
+        printf("\n");
+}
 
 void dump_rules(grammatical_rule_list* ls) {
     for(auto i : *ls->roots) {
-        vec_dump_node(ls->roots, 1);
+        vec_dump_node(i);
     }
 }
-
 
 int main() {
 
@@ -772,7 +863,7 @@ int main() {
 
     make_rules(ls);
 
-    //dump_rules(ls);
+    dump_rules(ls);
 
     //std::cout << ls->roots->at(0)->childrens->at(0)->value->c_str() << std::endl;
 
