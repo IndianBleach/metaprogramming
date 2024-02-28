@@ -574,7 +574,7 @@ void make_rules(grammatical_rule_list* ls) {
     //int var(...) {}
     add_gram_rule(
         int_root->childrens, {
-            gram_tnode_crt_REF_RULE(NULL, cnst_TokenType::META_REF_RULE, meta_type::FUNC_DECL)
+            gram_tnode_crt_REF_RULE(NULL, cnst_TokenType::META_REF_RULE, meta_type::FUNC_DECL),
         },
         meta_type::FUNC_DEF_INT);
 
@@ -772,11 +772,15 @@ gram_tnode* deep_getEntry_wparse(
     return NULL;
 }
 
+std::vector<gram_tnode*> temp_vec;
+
 std::vector<gram_tnode*>* deep_getEntries(
     std::vector<gram_tnode*>* ls,
     LexToken* target) {
     
-    std::vector<gram_tnode*>* ents = (std::vector<gram_tnode*>*)malloc(sizeof(std::vector<gram_tnode*>));
+    std::vector<gram_tnode*>* ents = &temp_vec;
+
+    ents->clear();
 
     for(auto item : *ls) {
         if (item->value != NULL && *item->value == target->value) {
@@ -819,7 +823,7 @@ std::vector<gram_tnode*>* deep_getEntries(
 
 // return - new offset
 // 
-int try_build_parse_ref(
+int make_offset_ref(
     int offset,
     std::vector<LexToken*>* pre_instr_list,
     gram_tnode* deep_root) {
@@ -834,7 +838,7 @@ int try_build_parse_ref(
             
             LexToken* cur = pre_instr_list->at(i);
 
-            printf("[try_build_parse_ref] val=%s\n", cur->value.c_str());
+            //printf("[make_offset_ref] val=%s\n", cur->value.c_str());
 
             if (cur->value == token_defs._BR_LFIG) {
                 return i;
@@ -844,7 +848,7 @@ int try_build_parse_ref(
     }
     else {
         deep_root = deep_root->childrens->at(0);
-        return try_build_parse_ref(offset, pre_instr_list, deep_root);
+        return make_offset_ref(offset, pre_instr_list, deep_root);
     }
 
     return -1;
@@ -856,23 +860,56 @@ int try_build_parse_ref(
 }
 
 
+class offset_instr {
+    public:
+        int instr_offset;
+        gram_tnode* instr_node;
+};
+
+offset_instr* make_offset(
+    int offset,
+    std::vector<LexToken*>* pre_instr_list,
+    gram_tnode* deep_root) {
+    
+
+    if (deep_root->rule_name != meta_type::UNDF_META) {
+        offset_instr* ret = (offset_instr*)malloc(sizeof(offset_instr));
+        ret->instr_node = deep_root;
+        ret->instr_offset = offset;
+        return ret;
+    }
+
+    // int t, char b) 
+    if (deep_root->parse_rule == meta_parse_rule::FUNC_PARAM_LIST) {
+        for(int i = offset; i < pre_instr_list->size(); i++) {
+            
+            LexToken* cur = pre_instr_list->at(i);
+
+            if (cur->value == token_defs._BR_LCIR) {
+                return make_offset(offset, pre_instr_list, deep_root->childrens->at(0));
+            }
+            // todo: parse type, parse varname
+        }
+    }
+    else {
+        deep_root = deep_root->childrens->at(0);
+        return make_offset(offset, pre_instr_list, deep_root);
+    }
+
+    return NULL;
+}
+
+// build_instr (instr, vec<lex>)
+
 bool deep_build(
     gram_tnode* root,
     std::vector<gram_tnode*>* vis,
     std::vector<LexToken*>* pre_instr_list,
     int pre_instr_index) {
-    
-    if (root != NULL && root->type >= 0 && root->type <= 15) {
-
-    }
-    else {
-        return false;
-    }
 
     vis->push_back(root);
 
     auto c = pre_instr_list->at(pre_instr_index);
-    printf("c type=%i\n", c->type);
     if (root->type == c->type && c->type == cnst_TokenType::VAR_NAME) {
         pre_instr_index++;
     }
@@ -892,41 +929,38 @@ bool deep_build(
 
     if (pre_instr_index < 0) pre_instr_index = 0;
 
-    printf("(--->deep instr[%i]) %s parse=%i type=%i rule=%i\n", pre_instr_index, root->value != NULL ? root->value->c_str() : "NULL", root->parse_rule, root->type, root->rule_name);
+    //printf("(--->deep instr[%i]) %s parse=%i type=%i rule=%i\n", pre_instr_index, root->value != NULL ? root->value->c_str() : "NULL", root->parse_rule, root->type, root->rule_name);
 
     // if parse_rule
     if (root->parse_rule != meta_parse_rule::NO_RULE) {
-        printf("[refff name] %i \n", root->ref_rule);
+        //printf("[refff name] %i \n", root->ref_rule);
         printf("[parse rule] val=%s\n", root->value->c_str());
     }
     else if (root->ref_rule != meta_type::UNDF_META) {
-        printf("[refff name] %i \n", root->ref_rule);
+        //printf("[refff name] %i \n", root->ref_rule);
         gram_tnode* ref = global_refs->get_node_byref(root->ref_rule);
         if (ref != NULL) {
             
-            printf("[REF. offset=%i]\n", pre_instr_index);
-            pre_instr_index = try_build_parse_ref(pre_instr_index, pre_instr_list, ref);
-            printf("[REF out. offset=%i] ref=%s \n", pre_instr_index, ref->value->c_str());
-            
-            // full parsed ref (func)
-            if (pre_instr_index == pre_instr_list->size() - 1) {
-                printf("[REF RULE] %i \n", root->rule_name);
-            }
-            else {
-                return false;
+            //printf("[REF. offset=%i]\n", pre_instr_index);
+            pre_instr_index = make_offset_ref(pre_instr_index, pre_instr_list, ref);
+
+            //deep_build(root->childrens->at(0), vis, pre_instr_list, pre_instr_index);
+            if (pre_instr_index != -1) {
+                offset_instr* offset_instr = make_offset(pre_instr_index, pre_instr_list, root);
+                if (offset_instr != NULL) {
+                    printf("[REF_INSTR] offset=%i instr=%i \n", offset_instr->instr_offset, offset_instr->instr_node->rule_name);
+                }
             }
         } 
     }
     else if (root->rule_name != meta_type::UNDF_META) {
 
         if (pre_instr_index == pre_instr_list->size()) {
-            printf("[rule (activated)] %i \n", root->rule_name);
+            printf("[INSTR] %i \n", root->rule_name);
             return true;
         }
     }
     
-    printf("deb.1\n");
-
     if (root == NULL) {
         return false;
     }
@@ -934,12 +968,8 @@ bool deep_build(
         return false;
     }
 
-
     std::vector<gram_tnode*>* ents = deep_getEntries(root->childrens, pre_instr_list->at(pre_instr_index));
 
-    //printf("[get ents] count=%i\n", ents->size());
-    
-    // get entries
     for(gram_tnode* item : *ents) {
         if (vec_find(vis,item) == false) {
             
@@ -987,12 +1017,11 @@ void build_instr_tree(
         if (entry != NULL) {
             printf("--> entry=%s\n", entry->value->c_str());
 
+            visited->clear();
             deep_build(entry, visited, pre_instr_vec, 0);
-
-            break;
         }
 
-       // offset = get_instr_pre_src(offset, tokens, pre_instr_vec);
+       offset = get_instr_pre_src(offset, tokens, pre_instr_vec);
     }
 }
 
