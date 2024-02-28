@@ -7,6 +7,9 @@
 
 #include <vector>
 
+#ifndef _GRAMMATIC_H_
+#define _GRAMMATIC_H_
+
 
 enum cnst_TokenType {
     
@@ -212,3 +215,4 @@ class grammatical_rule_list {
         void add_gram_rule(std::vector<gram_tnode*>* ls, std::initializer_list<gram_tnode*> nodes, meta_type rule_type);
 };
 
+#endif
