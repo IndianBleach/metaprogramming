@@ -100,6 +100,9 @@ class gram_tnode {
         static gram_tnode* gram_tnode_crt(const std::string* _val, cnst_TokenType _type, meta_type rule_name, meta_parse_rule parse_rule);
 
         static gram_tnode* gram_tnode_crt_REF_RULE(const std::string* _val, cnst_TokenType _type, meta_type ref_rule);
+
+        static bool vec_find_gram(std::vector<gram_tnode*>* vec, gram_tnode* tar);
+ 
 };
 
 class token_alphabet {
@@ -208,11 +211,9 @@ class grammatical_rule_list {
     public:
         std::vector<gram_tnode*>* roots;
 
-        static grammatical_rule_list* crt_filled_rulelist();
-
-        void make_rules(grammatical_rule_list* ls);
-
         void add_gram_rule(std::vector<gram_tnode*>* ls, std::initializer_list<gram_tnode*> nodes, meta_type rule_type);
+
+        static grammatical_rule_list* crt_grammatic();
 };
 
 #endif

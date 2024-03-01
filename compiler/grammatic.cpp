@@ -1,5 +1,8 @@
 #include "grammatic.h"
 
+extern nodeRef_utils* global_refs;
+extern token_alphabet token_defs;
+
 
 gram_tnode::gram_tnode(std::string* _val, cnst_TokenType _type) {
             value = _val;
@@ -82,35 +85,15 @@ gram_tnode* gram_tnode::gram_tnode_crt_REF_RULE(const std::string* _val, cnst_To
             return nd;
         };
 
-
-
-grammatical_rule_list* grammatical_rule_list::crt_filled_rulelist() {
-            grammatical_rule_list* ls = (grammatical_rule_list*)malloc(sizeof(grammatical_rule_list));
-
-            ls->roots = new std::vector<gram_tnode*>();
-
-            return ls;
-        };
-
-
-
-void grammatical_rule_list::add_gram_rule(
-    std::vector<gram_tnode*>* ls,
-    std::initializer_list<gram_tnode*> nodes,
-    meta_type rule_type)
-{
-    std::vector<gram_tnode*>* t = (ls);
-
-    gram_tnode* last = NULL;
-
-    for(auto item : nodes) {
-        t->push_back(item);
-        t = (item->childrens); 
-        last = item;
+bool gram_tnode::vec_find_gram(std::vector<gram_tnode*>* vec, gram_tnode* tar) {
+    for(auto i : *vec) {
+        if (i == tar) {
+            return true;
+        }
     }
+    return false;
+}
 
-    last->rule_name = rule_type;
-};
 
 gram_tnode* nodeRef_utils::get_node_byref(meta_type type)  {
             int i = 0;
@@ -140,12 +123,26 @@ nodeRef_utils* nodeRef_utils::crt(){
     return ref;
 }
 
-extern nodeRef_utils* global_refs;
-extern token_alphabet token_defs;
+void add_gram_rule(
+    std::vector<gram_tnode*>* ls,
+    std::initializer_list<gram_tnode*> nodes,
+    meta_type rule_type)
+{
+    std::vector<gram_tnode*>* t = (ls);
 
-void grammatical_rule_list::make_rules(grammatical_rule_list* ls) {
-    
+    gram_tnode* last = NULL;
 
+    for(auto item : nodes) {
+        t->push_back(item);
+        t = (item->childrens); 
+        last = item;
+    }
+
+    last->rule_name = rule_type;
+};
+
+
+void make_rules(grammatical_rule_list* ls) {
 
     // generic.def_func
     // (<paramList>) {<func_block>}
@@ -313,3 +310,12 @@ void grammatical_rule_list::make_rules(grammatical_rule_list* ls) {
 
 }
 
+
+grammatical_rule_list* grammatical_rule_list::crt_grammatic() {
+    grammatical_rule_list* ls = (grammatical_rule_list*)malloc(sizeof(grammatical_rule_list));
+    ls->roots = new std::vector<gram_tnode*>();
+
+    make_rules(ls);
+
+    return ls;
+};

@@ -1,5 +1,8 @@
 #include "grammatic.h"
 
+#ifndef _LEXER_H
+#define _LEXER_H
+
 class LexToken {
     
     public:
@@ -161,4 +164,7 @@ class Lexer {
 
         static Lexer* crt();
         void make_tokens(std::string* src, std::vector<LexToken>* tokens);
+        std::vector<LexToken>* tokens_from_file(const char* file_path);
 };
+
+#endif
