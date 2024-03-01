@@ -21,10 +21,10 @@ extern std::vector<gram_tnode*> temp_vec;
     instr_builder.build_instr_tree( path ) -> file_instr_tree;
         - 
     
-    instr_tree
-
     -> to file
-    expressions
+    1) expressions
+    2) определить базовую структуру дерева инструкций expr_tree
+    3) сделать первые инструкции в дерево
 
 */
 
