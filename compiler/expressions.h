@@ -92,6 +92,36 @@ class Expr_VarSet : public ExprBase {
         static Expr_VarSet* crt(std::string* name, Expr_Value* val);
 };
 
+// ___________ LOGIC
+
+enum LogicOperators {
+    EQUAL,
+    NOT_EQUAL,
+    LESS,
+    MORE,
+    LESS_EQ,
+    MORE_EQ,
+};
+
+class Expr_LogicOperation : public ExprBase {
+    public:
+        // value | exprLogic
+        Expr_LogicOperation* left_op;
+        Expr_LogicOperation* right_op;
+        Expr_Value* left_val;
+        Expr_Value* right_val;
+        LogicOperators log_operator;
+
+        static Expr_LogicOperation* crt(Expr_LogicOperation* left, Expr_LogicOperation* right, LogicOperators _operator);
+};
+
+class Expr_LogicTree : public ExprBase {
+    public:
+        Expr_LogicOperation* root;
+
+        static Expr_LogicTree* crt(Expr_LogicOperation* root);
+};
+
 // ___________ FUNCS
 
 class Expr_FParamListCall : public ExprBase {

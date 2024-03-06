@@ -71,7 +71,26 @@ Expr_VarSet* Expr_VarSet::crt(std::string* name, Expr_Value* val) {
     ex->var_name = name;
 }
 
+// ___________ LOGIC
 
+Expr_LogicOperation* Expr_LogicOperation::crt(Expr_LogicOperation* left, Expr_LogicOperation* right, LogicOperators _operator) {
+    Expr_LogicOperation* ex = (Expr_LogicOperation*)malloc(sizeof(Expr_LogicOperation));
+    ex->left_op = left;
+    ex->right_op = right;
+    ex->log_operator = _operator;
+
+    ex->left_val = NULL;
+    ex->right_val = NULL;
+
+    return ex;
+}
+
+Expr_LogicTree* Expr_LogicTree::crt(Expr_LogicOperation* root) {
+    Expr_LogicTree* ex = (Expr_LogicTree*)malloc(sizeof(Expr_LogicTree));
+    ex->root = root;
+
+    return ex;
+}
 
 // ___________ FUNCS
 
