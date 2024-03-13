@@ -1,9 +1,10 @@
 ### todo
 - [x] `malloc`
 - [x] `GC`
-- `lexer/parser -> AST`
+- `translator`
 - `object memory frames (auto free)`
 - `text editor`
+- `git`
 - `compiler`
 - `ai practice`
 - `ide`
