@@ -1,4 +1,4 @@
-### todo
+## tsks
 - [x] `malloc`
 - [x] `GC`
 - `translator`
