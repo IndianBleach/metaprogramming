@@ -1,0 +1,9 @@
+﻿  core.cpp
+  grammatic.cpp
+  grammatic.h
+  instr_builder.cpp
+  lexer.cpp
+  utils.cpp
+  Создание кода...
+x64\Debug\grammatic.obj : warning LNK4042: объект указан более одного раза; лишние не учитываются
+  llvm_t.vcxproj -> C:\ghrepos\low\llvm_t\x64\Debug\llvm_t.exe
