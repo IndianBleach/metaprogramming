@@ -8,3 +8,5 @@
 - `compiler`
 - `ai practice`
 - `ide`
+
+fix: написать описание для проектов
