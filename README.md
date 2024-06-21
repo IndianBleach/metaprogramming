@@ -5,6 +5,7 @@
 - `object memory frames (auto free)`
 - `text editor`
 - `git`
+- `docker`
 - `compiler`
 - `ai practice`
 - `ide`
