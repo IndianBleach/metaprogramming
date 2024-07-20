@@ -129,9 +129,11 @@
   <ItemGroup>
     <ClCompile Include="DebugFile.cpp" />
     <ClCompile Include="debugger.cpp" />
+    <ClCompile Include="DebuggerCmd.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DebugFile.h" />
+    <ClInclude Include="DebuggerCmd.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

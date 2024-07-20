@@ -8,6 +8,7 @@
 #include <strsafe.h>
 
 #include "DebugFile.h"
+#include "DebuggerCmd.h"
 
 
 void onDebugStringEvent(
@@ -56,7 +57,27 @@ void onProcessDebugEvent(DEBUG_EVENT event)
 }
 
 
+void onExceptionDebugEvent(DEBUG_EVENT event)
+{
+	EXCEPTION_RECORD exp = event.u.Exception.ExceptionRecord;
+	
+	switch (exp.ExceptionCode)
+	{
+	case EXCEPTION_BREAKPOINT:
+		printf("exp: EXCEPTION_BREAKPOINT\n");
+		break;
+
+	case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+		printf("exp: EXCEPTION_ARRAY_BOUNDS_EXCEEDED\n");
+		break;
+	}
+
+}
+
 void main() {
+
+	DebuggerCmd cmd;
+
 
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
@@ -95,14 +116,13 @@ void main() {
 		{
 			switch (event.dwDebugEventCode)
 			{
-			case EXCEPTION_DEBUG_EVENT:
-				printf("exp event\n");
-
-				break;
-
 			case CREATE_PROCESS_DEBUG_EVENT:
 				printf("CREATE_PROCESS_DEBUG_EVENT\n");
 				onProcessDebugEvent(event);
+				break;
+
+			case EXCEPTION_DEBUG_EVENT:
+				onExceptionDebugEvent(event);
 				break;
 
 			case OUTPUT_DEBUG_STRING_EVENT:
@@ -110,17 +130,26 @@ void main() {
 				onDebugStringEvent(event);
 				break;
 
+			case LOAD_DLL_DEBUG_EVENT:
+				printf("LOAD_DLL_DEBUG_EVENT\n");
+				break;
+
+				//LOAD_DLL_DEBUG_EVENT
+
 			default:
-				printf("unknown\n");
+				printf("eventCode=%i\n", event.dwDebugEventCode);
 				break;
 			}
+
+			DWORD command = cmd.ReadNextCommand();
+
+			printf("cmd=%i\n", command);
+
+			ContinueDebugEvent(
+				event.dwProcessId,
+				event.dwThreadId,
+				DBG_CONTINUE);
 		}
-
-		ContinueDebugEvent(
-			event.dwProcessId,
-			event.dwThreadId,
-			DBG_CONTINUE);
-
 	}
 
 	CloseHandle(pi.hProcess);

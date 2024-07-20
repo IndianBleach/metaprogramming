@@ -24,16 +24,22 @@ int main()
 	//CreateEvent(NULL, FALSE, FALSE, NULL);
 	//DebugBreak();
 
+	int remp[2]{ 15, 145 };
+
+	int five = remp[-5];
 
 
 	//CreateEvent(NULL, TRUE, FALSE, ts);
 
 
-	OutputDebugString(TEXT("Hello World!\n"));
+	for (int i = 0; i < 10; i++)
+	{
+		DebugBreak();
 
-	DebugBreak();
+		OutputDebugString(TEXT("Hello World!\n"));
 
-	printf("i*2=%i\n", 20 * 2);
+		printf("i*2=%i\n", 20 * 2);
+	}
 
 	Sleep(2000);
 	return 0;
