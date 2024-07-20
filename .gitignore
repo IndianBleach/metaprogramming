@@ -2,3 +2,10 @@
 *.exe
 *.vs
 *.gch
+*log
+*.filters
+*.recipe
+*.iobj
+*.ipdb
+*obj
+*pdb
