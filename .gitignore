@@ -2,3 +2,7 @@
 *.exe
 *.vs
 *.gch
+*.tlog
+*.filters
+*x64
+*.user
