@@ -127,11 +127,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="c2cpp_translator.cpp" />
     <ClCompile Include="ex2-7.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="vec.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="c2cpp_translator.h" />
     <ClInclude Include="vec.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
