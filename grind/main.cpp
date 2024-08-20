@@ -10,6 +10,8 @@
 #include <ctype.h>
 #include <windows.h>
 
+#define _CRT_SECURE_NO_WARNINGS
+
 HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
 #pragma region logging
@@ -370,61 +372,347 @@ Func ops[] = {
 };
 #pragma endregion 
 
+#include "malloc.h"
 
-// 4.8 
+void heap_used() {
+	_HEAPINFO info = { 0 };
 
-/*
-	все функции в хедер файлы
-	инклуды и определения
+	int used = 0;
 
-	define заменить const, enum
-	malloc, free - заменить на new, delete
-	удалить ненужные приведения
-
-*/
-
-
-char trans_buff[1024];
-int trans_cursor = 0;
-
-char out_buff[1024];
-int out_cursor = 0;
-
-
-
-void _write_buff(char* buff, int& cursor, const char* msg) {
-	
-	// by buff+cursor
-	while (char p = *msg++) {
-		buff[cursor++] = p;
+	while (_heapwalk(&info) == _HEAPOK) {
+		if (info._useflag == _USEDENTRY) {
+			used += info._size;
+		}
 	}
 
-	// by buff-stream
-
-	// by strcpy
-	//strcpy(trans_buff, line.c_str());
-	//trans_cursor += line.size();
+	printf("heap.used: %i\n", used);
 }
 
-#include "c2cpp_translator.h"
+#pragma region Classed, fields, constant - mutable funcs, friends
+
+class mvec {
+public:
+	int x, y, z;
+public:
+	mvec(int x, int y, int z) {
+		this->x = x;
+		this->y = y;
+		this->z = z;
+	}
+};
+
+class foo {
+	int _x = 0;
+	const char* name;
+public:
+
+	foo(const char* _name) {
+		//name = new char[strlen(_name)];
+		//strcpy(name, _name);
+		name = _name;
+	}
+
+	~foo() {
+		printf("foo.dctor\n");
+		delete[] name;
+	}
+
+	int read() const;
+	int sq() const;
+	int wr(int b);
+};
+
+int foo::read() const {
+	return _x;
+}
+
+int foo::sq() const {
+	//_x++; error
+	((foo*)this)->_x++;
+	return _x;
+}
+
+int foo::wr(int b) {
+	_x = 5;
+	return _x;
+}
+
+void f(foo& mut, const foo& cons) {
+	mut.read(); // ok
+	mut.wr(5); // ok
+	cons.read(); // ok
+	//cons.wr(); // error
+}
+
+#pragma endregion 
+
+#pragma region Unions
+
+union number {
+	float fval;
+	int ival;
+
+	number(int _ival) { ival = _ival; };
+	number(float val) { fval = val; };
+};
+
+#pragma endregion
+
+#pragma region class inherites, virtual fields
+
+class shape {
+	int m;
+public:
+	shape(int _m) { m = _m; };
+	virtual void sq() = 0;
+	virtual void rot() = 0;
+};
+
+class circle : public shape {
+private:
+	int _rad;
+public:
+	circle(int rad, int m) : shape(m), _rad(rad) {};
+	void sq() override {
+		printf("circle.sq()\n");
+	}
+
+	void rot() override {
+		printf("circle.rot\n");
+	}
+};
+
+class square : public shape {
+private:
+	int _w;
+	int _h;
+public:
+	square(int w, int h, int m) : shape(m), _w(w), _h(h) {};
+	void sq() override {
+		printf("square.sq()\n");
+	}
+
+	void rot() override {
+		printf("square.rot\n");
+	}
+};
+
+class window {
+private:
+	int p = 10;
+protected:
+	int t = 5;
+public:
+	virtual void draw() = 0;
+
+	virtual ~window() {};
+};
+
+class window_w_input : public  window {
+public:
+	void draw() {
+		printf("window_w_input.draw()\n");
+	}
+
+	~window_w_input() {
+		printf("window_w_input.dctor\n");
+	}
+};
+
+class window_w_menu : public  window {
+public:
+	void draw() {
+		int a = t;
+		printf("window_w_menu.draw()\n");
+	}
+
+	~window_w_menu() {
+		printf("window_w_menu.dctor\n");
+	}
+};
+
+class window_menu_input 
+	: public  window_w_input,
+	public  window_w_menu
+{
+public:
+	char t[200];
+	~window_menu_input() {
+		printf("window_menu_input.dctor\n");
+	}
+};
+
+#pragma endregion
+
+#pragma region ovveriding new
+
+class xo {
+	int _x = 0;
+public:
+	xo(int t) { _x = t; };
+	void* operator new (size_t, void* p, int sz) { return p; };
+};
+
+char buffer[sizeof(xo)];
+
+xo* crt(int t) {
+	xo* ptr = new(buffer, 10) xo(t);
+	return ptr;
+}
+
+#pragma endregion
+
+#pragma region diff overload operators
+
+class com {
+	
+	int x;
+public:
+	
+	com(int _x) {
+		x = _x;
+	}
+
+	com() { x = -1; };
+
+	friend com operator+(com a, com b) {
+		com r(a.x + b.x);
+		return r;
+	}
+
+	com& operator=(const com& ptr) {
+		x = ptr.x * 2;
+		return *this;
+	}
+
+	com* operator&() {
+		printf("op:&\n");
+		return this;
+	}
+
+	com operator++(int) {
+		com temp(*this);
+		operator++();
+		return temp;
+	}
+
+	com& operator++() {
+		x += 1;
+		return *this;
+	}
+
+
+
+	//friend com operator++(com& a) {
+	//	a.x += 1;
+	//	return a;
+	//}
+};
+
+#pragma endregion
+
+class mstr {
+	struct strep {
+		char* s;
+		int n;
+		strep() { n = 1; };
+	};
+
+private:
+	strep* ptr;
+
+public:
+	mstr(const char*);
+	mstr(const mstr&);
+	mstr();
+	mstr& operator=(const char*);
+	mstr& operator=(const mstr&);
+	~mstr();
+	char& operator[](int index);
+
+	friend std::ostream& operator<<(std::ostream&, const mstr&);
+	friend std::istream& operator>>(std::istream&, mstr&);
+	friend int operator ==(const mstr& x, const char* s) {
+		return std::strcmp(x.ptr->s, s) == 0;
+	}
+	friend int operator ==(const mstr& x, const mstr& b) {
+		return std::strcmp(x.ptr->s, b.ptr->s) == 0;
+	}
+	friend int operator !=(const mstr& x, const char* s) {
+		return std::strcmp(x.ptr->s, s) != 0;
+	}
+	friend int operator !=(const mstr& x, const mstr b) {
+		return std::strcmp(x.ptr->s, b.ptr->s) != 0;
+	}
+};
+
+mstr::mstr(const mstr& s) {
+	s.ptr->n++;
+	ptr = s.ptr;
+}
+
+mstr::mstr(const char* b) {
+	ptr = new strep;
+	int len = std::strlen(b);
+	ptr->s = new char[len + 1];
+	strcpy(ptr->s, b);
+}
+
+mstr::~mstr() {
+	if (--ptr->n == 0) {
+		delete[] ptr->s;
+		delete ptr;
+	}
+}
+
+mstr::mstr() {
+	ptr = new strep;
+	ptr->s = 0;
+};
+
+// s = "gold"
+mstr& mstr::operator=(const char* s) {
+	if (ptr->n > 1) {
+		ptr->n--;
+		ptr = new strep;
+	}
+	else delete ptr->s;
+
+	ptr->s = new char[strlen(s) + 1];
+	strcpy(ptr->s, s);
+	return *this;
+}
+
+mstr& mstr::operator=(const mstr& s) {
+	s.ptr->n++;
+	if (--ptr->n == 0) { // delete old string
+		delete[] ptr->s;
+		delete ptr;
+	}
+
+	ptr = s.ptr;
+	return *this;
+}
+
+using namespace std;
+ostream& operator << (ostream& s, const mstr& str) {
+	s << str.ptr->s << "[" << str.ptr->n << "]" << "\n";
+	return s;
+}
+
+istream& operator >> (istream& s, mstr& x) {
+	char buff[256];
+	s >> buff;
+
+	x = buff;
+	return s;
+}
 
 int main(int argc, char* argv[])
 {
-	CppTranslator trans;
-	
+	mstr s[10];
+	cin >> s[0];
+	cout << s[0];
 
-	translate("C:\\ghrepos\\low\\grind\\data\\code.c");
-
-	//Calc calc{};
-
-	//calc.set_context_buff("app=3.33;app*3");
-	//calc.parse();
-
-	//calc.get_name("_qwd");
-	//int index = calc.look_variable();
-	//calc.set_variable(index, 999.23);
-	
-	//double res = calc.result("123.451*2");
-
-	return 0;
+	return 0; 
 }
