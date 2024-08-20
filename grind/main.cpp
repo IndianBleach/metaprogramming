@@ -644,7 +644,24 @@ public:
 	friend int operator !=(const mstr& x, const mstr b) {
 		return std::strcmp(x.ptr->s, b.ptr->s) != 0;
 	}
+	const char* operator()(int, int); // substring
 };
+
+// sub()
+// 
+
+const char* mstr::operator()(int start, int end) {
+	int len = end - start + 1;
+	char* s = new char[len]();
+	
+	for (int i = 0; i < len; i++) {
+		char p = ptr->s[start + i];
+		s[i] = p;
+	}
+
+	s[len-1] = '\0';
+	return const_cast<const char*>(s);
+}
 
 mstr::mstr(const mstr& s) {
 	s.ptr->n++;
@@ -708,11 +725,11 @@ istream& operator >> (istream& s, mstr& x) {
 	return s;
 }
 
+
 int main(int argc, char* argv[])
 {
-	mstr s[10];
-	cin >> s[0];
-	cout << s[0];
+	mstr s = "apple good wise";
+	mstr sub = s(3, 5);
 
 	return 0; 
 }
