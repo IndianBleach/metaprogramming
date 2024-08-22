@@ -2,6 +2,8 @@
 - [x] `malloc`
 - [x] `GC`
 - `translator`
+- `containers & ds`
+- `monitor draw` (opengl?)
 - `object memory frames (auto free)`
 - `text editor`
 - `git`
