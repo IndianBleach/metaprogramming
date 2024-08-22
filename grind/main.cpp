@@ -611,6 +611,8 @@ public:
 
 #pragma endregion
 
+
+
 class mstr {
 	struct strep {
 		char* s;
@@ -629,7 +631,9 @@ public:
 	mstr& operator=(const mstr&);
 	~mstr();
 	char& operator[](int index);
-
+	const char* get() {
+		return ptr->s;
+	}
 	friend std::ostream& operator<<(std::ostream&, const mstr&);
 	friend std::istream& operator>>(std::istream&, mstr&);
 	friend int operator ==(const mstr& x, const char* s) {
@@ -645,6 +649,35 @@ public:
 		return std::strcmp(x.ptr->s, b.ptr->s) != 0;
 	}
 	const char* operator()(int, int); // substring
+};
+
+class mstr_iterator {
+private:
+	mstr* _base;
+	int _capacity;
+public:
+	mstr_iterator(mstr* base) {
+		_base = base;
+		_capacity = 0;
+		while (base++) {
+			_capacity++;
+		}
+	}
+	mstr* begin() {
+		return _base;
+	}
+	mstr* end() {
+		return _base + _capacity;
+	}
+
+
+
+	// ++
+	// --
+	// []
+	// ==
+	// !=
+
 };
 
 // sub()
@@ -728,8 +761,16 @@ istream& operator >> (istream& s, mstr& x) {
 
 int main(int argc, char* argv[])
 {
-	mstr s = "apple good wise";
-	mstr sub = s(3, 5);
+	mstr* arr = new mstr[10];
+	for (int i = 0; i < 9; i++) {
+		std::string st = "item=" + i;
+		arr[i] = st.c_str();
+	}
+
+	mstr_iterator iter(arr);
+	for (mstr& i : iter) {
+		cout << i.get();
+	}
 
 	return 0; 
 }
