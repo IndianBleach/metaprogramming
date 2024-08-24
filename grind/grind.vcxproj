@@ -130,12 +130,12 @@
     <ClCompile Include="c_translator\translator.cpp" />
     <ClCompile Include="ex2-7.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="mstring.cpp" />
+    <ClCompile Include="slist.cpp" />
     <ClCompile Include="vec.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="c_translator\translator.h" />
-    <ClInclude Include="mstring.h" />
+    <ClInclude Include="slist.h" />
     <ClInclude Include="vec.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

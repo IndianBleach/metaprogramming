@@ -74,7 +74,7 @@ void _initNode(TranslateNode& node,
 	node.literal_desc = desc;
 	node.name = new char[len];
 	node.name[len] = '\0';
-	mstring::strcpy(node.name, nameBuff);
+	//mstring::strcpy(node.name, nameBuff);
 	node.type = type;
 }
 

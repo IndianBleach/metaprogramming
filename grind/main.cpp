@@ -788,9 +788,81 @@ class slink_item : public slink
 {
 };
 
+using namespace std;
+
+template<class T> 
+class Comparator {
+public:
+	inline static int lessthan(T& a, T& b) {
+		return strcmp(a, b) < 0;
+	}
+};
+
+class Comparator<const char*> {
+public:
+	inline static int lessthan(const char* a, const char* b) {
+		return _strcmp(a, b) < 0;
+	}
+};
+
+
+template<class T>
+class SortableVector : public vector<T>, public Comparator<T> {
+public:
+	SortableVector(int n) { vector<T>(n); }
+};
+
+template<class T> void msort(std::vector<T>& v) {
+	unsigned n = v.size();
+	for (int i = 0; i < n - 1; i++) {
+		for (int j = n - 1; i < j; j--) {
+			if (v[j] < v[j - 1]) {
+				T temp = v[j];
+				v[j] = v[j - 1];
+				v[j - 1] = temp;
+			}
+		}
+	}
+}
+
+
+void msort(vector<const char*>& v) {
+	unsigned n = v.size();
+	for (int i = 0; i < n - 1; i++) {
+		for (int j = n - 1; i < j; j--) {
+			int res = _strcmp(v[j], v[j - 1]);
+			printf("cmp(%s, %s)=%i\n", v[j], v[j - 1], res);
+			if (res < 0) {
+				const char* temp = v[j];
+				v[j] = v[j - 1];
+				v[j - 1] = temp;
+			}
+		}
+	}
+}
+
+
+
+void f(vector<int>& vi,
+	vector<string> vs)
+{
+	msort(vi);
+	msort(vs);
+}
+
+
+
 
 int main(int argc, char* argv[])
 {
+	int r1 = _strcmp("man", "gold1231231");
+	int r2 = _strcmp("gold1231231", "apple");
+
+	vector<int> s1{ 1,2,78,4,2,8,90,45 };
+	vector<const char*> s2{ "apple", "apple2", "apple", "gold1231231", "man", "trees" };
+	msort(s1);
+	msort(s2);
+
 	mstr* arr = new mstr[10];
 	for (int i = 0; i < 9; i++) {
 		std::string st = "item=" + i;

@@ -7,8 +7,6 @@
 #include <iostream>
 #include <memory>
 
-#include "../mstring.h"
-
 #define _CRT_SECURE_NO_WARNINGS
 
 class CharBuffer {
@@ -32,7 +30,7 @@ public:
 
 	CharBuffer* operator << (const char* line) {
 		int len = std::strlen(line);
-		mstring::strcpy(&_buff[_cursor], line);
+		//mstring::strcpy(&_buff[_cursor], line);
 		_cursor += len;
 
 		return this;
