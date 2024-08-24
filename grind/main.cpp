@@ -611,7 +611,7 @@ public:
 
 #pragma endregion
 
-
+#pragma region string
 
 class mstr {
 	struct strep {
@@ -686,13 +686,13 @@ public:
 const char* mstr::operator()(int start, int end) {
 	int len = end - start + 1;
 	char* s = new char[len]();
-	
+
 	for (int i = 0; i < len; i++) {
 		char p = ptr->s[start + i];
 		s[i] = p;
 	}
 
-	s[len-1] = '\0';
+	s[len - 1] = '\0';
 	return const_cast<const char*>(s);
 }
 
@@ -757,6 +757,36 @@ istream& operator >> (istream& s, mstr& x) {
 	x = buff;
 	return s;
 }
+
+#pragma endregion
+
+
+#include "./slist.h"
+
+template<class T>
+class mstack {
+	T* v;
+	T* p;
+	int size;
+public:
+	mstack(int s) { v = p = new T[size = s]; }
+	~mstack() { delete[] v; }
+	void push(T a);
+	T pop();
+	int sz() const { return p - v; }
+};
+
+template<class T> void mstack<T>::push(T a) {
+	*p++ = a;
+}
+
+template<class T> T mstack<T>::pop() {
+	return *--p;
+}
+
+class slink_item : public slink
+{
+};
 
 
 int main(int argc, char* argv[])
