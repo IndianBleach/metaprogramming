@@ -812,7 +812,7 @@ public:
 	SortableVector(int n) { vector<T>(n); }
 };
 
-template<class T> void msort(std::vector<T>& v) {
+template<class T> void msort(SortableVector<T>& v) {
 	unsigned n = v.size();
 	for (int i = 0; i < n - 1; i++) {
 		for (int j = n - 1; i < j; j--) {
@@ -824,23 +824,6 @@ template<class T> void msort(std::vector<T>& v) {
 		}
 	}
 }
-
-
-void msort(vector<const char*>& v) {
-	unsigned n = v.size();
-	for (int i = 0; i < n - 1; i++) {
-		for (int j = n - 1; i < j; j--) {
-			int res = _strcmp(v[j], v[j - 1]);
-			printf("cmp(%s, %s)=%i\n", v[j], v[j - 1], res);
-			if (res < 0) {
-				const char* temp = v[j];
-				v[j] = v[j - 1];
-				v[j - 1] = temp;
-			}
-		}
-	}
-}
-
 
 
 void f(vector<int>& vi,
