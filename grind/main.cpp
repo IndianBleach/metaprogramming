@@ -169,7 +169,7 @@ void f4()
 	& - 'И'. 1 если оба соотв. разряда = 1
 	| - 'ИЛИ'. 1 если один из соотв. разрядов = 1
 	~ - 'ИНВЕРСИЯ'. противоположный разряд, 1=0, 0=1
-	^ - 'ИСКЛЮЧАЮЩЕЕ ИЛИ'. 1 если ТОЛЬКО один из соотв. разрядов = 1 
+	^ - 'ИСКЛЮЧАЮЩЕЕ ИЛИ'. 1 если ТОЛЬКО один из соотв. разрядов = 1
 
 	>> сдвиг вправо (деление)
 	<< сдвиг влево (умножение)
@@ -184,11 +184,11 @@ class Bar
 public:
 	int Age = 5;
 	Bar(int _age) : Age(_age) {};
-	
+
 };
 
 /*
---const_cast-- 
+--const_cast--
 Bar u1(10);
 Bar u2(20);
 const Bar* r1 = &u1;
@@ -531,7 +531,7 @@ public:
 	}
 };
 
-class window_menu_input 
+class window_menu_input
 	: public  window_w_input,
 	public  window_w_menu
 {
@@ -565,10 +565,10 @@ xo* crt(int t) {
 #pragma region diff overload operators
 
 class com {
-	
+
 	int x;
 public:
-	
+
 	com(int _x) {
 		x = _x;
 	}
@@ -790,7 +790,7 @@ class slink_item : public slink
 
 using namespace std;
 
-template<class T> 
+template<class T>
 class Comparator {
 public:
 	inline static int lessthan(T& a, T& b) {
@@ -798,12 +798,13 @@ public:
 	}
 };
 
-class Comparator<const char*> {
-public:
-	inline static int lessthan(const char* a, const char* b) {
-		return _strcmp(a, b) < 0;
-	}
-};
+//
+//class Comparator<const char*> {
+//public:
+//	inline static int lessthan(const char* a, const char* b) {
+//		return _strcmp(a, b) < 0;
+//	}
+//};
 
 
 template<class T>
@@ -826,36 +827,97 @@ template<class T> void msort(SortableVector<T>& v) {
 }
 
 
-void f(vector<int>& vi,
-	vector<string> vs)
-{
-	msort(vi);
-	msort(vs);
-}
+class Usr {
 
+public:
+	class Range {
+		const char* msg;
+	public:
+		Range(const char* _msg) {
+			msg = _msg;
+		}
+	};
 
+	class Size {};
+
+	int pop() {
+		throw Size();
+		return 1;
+	}
+
+	int pop1() {
+		return pop();
+	}
+
+	int pop2() throw (Range, Size) {
+		try
+		{
+			pop1();
+		}
+		catch (Range r) {
+			int t = 3;
+		}
+		catch (Size sz) {
+			int r = 3;
+		}
+
+		return 2;
+	}
+};
+
+/*
+	обработка ошибок:
+	способы закрытия программы
+	возвратить нормальное/ошибочное значение (code)
+	обработать ошибку
+	обработать ошибку и записать в последнее собшщение (perror())
+	можно использовать иерархию классов для перехвата с наследованием
+
+	чтобы не писать в блоке use() обработку ошибок с помощью catch
+		-следует определить дестркуторы и пользоваться ими
+
+*/
+
+template<class T>
+class MemPtr {
+public:
+	T* ptr;
+	MemPtr(int size) {
+		ptr = new T[size];
+	}
+
+	operator T* () { return ptr; }
+
+	~MemPtr()
+	{
+		delete[] ptr;
+	}
+};
+
+class X {
+public:
+	int* arr;
+	int sz;
+
+	MemPtr<int> ptr;
+
+	X(int size)
+		: ptr(size)
+	{
+		init();
+		// init() with catch();
+	}
+
+	~X() {
+		delete[] arr;
+	}
+};
 
 
 int main(int argc, char* argv[])
 {
-	int r1 = _strcmp("man", "gold1231231");
-	int r2 = _strcmp("gold1231231", "apple");
+	X x(5);
 
-	vector<int> s1{ 1,2,78,4,2,8,90,45 };
-	vector<const char*> s2{ "apple", "apple2", "apple", "gold1231231", "man", "trees" };
-	msort(s1);
-	msort(s2);
 
-	mstr* arr = new mstr[10];
-	for (int i = 0; i < 9; i++) {
-		std::string st = "item=" + i;
-		arr[i] = st.c_str();
-	}
-
-	mstr_iterator iter(arr);
-	for (mstr& i : iter) {
-		cout << i.get();
-	}
-
-	return 0; 
+	return 0;
 }
