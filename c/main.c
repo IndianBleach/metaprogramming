@@ -1,6 +1,9 @@
+
 #include "./m.h"
 
-void foo(int* b) {
-    int t =10;
-    *b = 10;
+#include <stdio.h>
+
+int main() {
+    printf("res=%i\n", summ(10 ,15));
+    return 1;
 }
