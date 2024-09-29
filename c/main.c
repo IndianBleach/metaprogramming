@@ -1,24 +1,13 @@
 
-#include "./m.h"
 
 #include <stdio.h>
 
-#include "./oop/user.h"
-#include "./oop/student.h"
+#include <win32.h>
 
 int main() {
-    
-    struct user* u = user_new("Joghn");
-    struct student* s = student_new("John", 15);
-
-    printf("name: %s\n", user_get_name(u));
-    printf("name: %s\n", user_get_name((struct user*)s));
-
-    nano
-
-
-    return 1;
+    pthread
 }
+
 
 /*
     OOP
@@ -105,9 +94,7 @@ int main() {
         - очереь сообщений
         - переменные среды
 
-    
-
-
 
 */
+
 
