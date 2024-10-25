@@ -1,6 +1,9 @@
 build:
 g++ -c -g -std=c++11 -I$PWD/.. test1.cpp -o stack.o
 
+lib:
+g++ -shared -fPIC stack.o -o libstack.so
+
 link and compile:
 g++ -L$PWD/.. stack.o libstack.so  -o example.out
 
