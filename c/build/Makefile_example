@@ -1,0 +1,18 @@
+CC = gcc
+
+build: deps objs lib_calc
+	gcc -c -Icalc main.c -o out/main.o
+	gcc -Lout out/main.o -lcalc -o out/c.out
+
+deps:
+	mkdir -p out
+
+objs:
+	gcc -c summ.c -o out/summ.o
+	gcc -c mul.c -o out/mul.o
+
+lib_calc:
+	ar rcs out/libcalc.a out/summ.o out/mul.o
+
+clean:
+	rm -rfv out
